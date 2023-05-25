@@ -1,0 +1,5 @@
+set(SRC ${CMAKE_PROJECT_NAME})
+
+file(GLOB_RECURSE SOURCES LIST_DIRECTORIES true *.h *.cpp)
+
+add_library(${SRC}_lib STATIC ${SOURCES})
