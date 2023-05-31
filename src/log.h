@@ -13,6 +13,8 @@
 #include <vector>
 #include <memory>
 #include <sstream>
+#include <unordered_map>
+#include "util.h"
 
 namespace seeker {
 namespace log {
@@ -94,8 +96,9 @@ class Formatter {
     : m_raw(std::move(format_str)) {}
   /**
    * @brief 初始化对格式进行解析
+   * @throw 不成功则抛出异常exception::ParseInvalidKey
    */
-  bool Init();
+  void Init();
   /**
    * @brief 返回格式字符串
    * @return std::string 
@@ -165,7 +168,7 @@ class IOutput {
    * @brief 输出接口
    * @param buf 传入的字符串数据
    */
-  virtual void Output(std::string &buf) = 0;
+  virtual void Output(const std::string &buf) = 0;
 };
 
 /**
@@ -173,35 +176,50 @@ class IOutput {
  */
 class Obj {
  public:
+  using Ptr = std::shared_ptr<Obj>;
   /**
+   * @brief 构建日志器并对格式进行解析
    * @param name 日志名字
    * @param format_str 日志格式字符串
+   * @throw 解析不成功抛出异常exception::ParseInvalidKey
    */
-  Obj(std::string name, std::string format_str) 
-    : m_name(std::move(name)),
-      m_formatter(new Formatter(std::move(format_str))) {}
+  Obj(std::string name, std::string format_str);
   /**
-   * @brief 初始化日志器
-   * @return true 
-   * @return false 
-   */
-  bool Init();
-  /**
-   * @brief 输出到所需要的地方(控制台/文件)
+   * @brief 输出
    * @param e 日志事件
    */
   void Output(Event::Ptr e);
   /**
-   * @brief 添加输出者
+   * @brief 添加输出
    */
-  void AddOutputer(IOutput::Ptr o) {
-    m_outputers.push_back(o);
+  void AddOutput(IOutput::Ptr o) {
+    m_outputs.push_back(o);
   }
   /**
-   * @brief 清空输出者
+   * @brief 清空输出
    */
-  void ClearOutputer() {
-    m_outputers.clear();
+  void ClearOutputs() {
+    m_outputs.clear();
+  }
+  /**
+   * @brief 获取日志名
+   */
+  std::string GetName() const {
+    return m_name;
+  }
+  /**
+   * @brief 获取格式器
+   * @return Formatter::Ptr 格式器智能指针
+   */
+  Formatter::Ptr GetFormatter() const {
+    return m_formatter;
+  }
+  /**
+   * @brief 设置格式器
+   * @param formatter 格式器指针
+   */
+  void SetFormatter(Formatter::Ptr formatter) {
+    m_formatter = formatter;
   }
  private:
   /**
@@ -212,8 +230,50 @@ class Obj {
    * @brief 日志格式
    */
   Formatter::Ptr m_formatter;
-  std::vector<IOutput::Ptr> m_outputers;
+  std::vector<IOutput::Ptr> m_outputs;
 };
+
+/**
+ * @brief 日志管理器
+ */
+class Manager {
+ public:
+ /**
+  * @brief 构建以及初始化默认日志器
+  * @throw 初始化失败则抛出exception::LoggerInitError
+  */
+  Manager();
+  /**
+   * @brief 获取指定日志器
+   * @param key 日志器名
+   */
+  Obj::Ptr GetLogger(std::string key);
+  /**
+   * @brief 返回默认日志器 
+   */
+  Obj::Ptr GetDefaultLogger() {
+    return m_default_logger;
+  }
+  /**
+   * @brief 添加日志器
+   */
+  void AddLogger(Obj::Ptr l);
+  /**
+   * @brief 删除指定日志器
+   */
+  void DeleteLogger(std::string logger_name);
+ private:
+  /**
+  * @brief 日志器字典
+  */
+  std::unordered_map<std::string, Obj::Ptr> m_loggers;
+  /**
+   * @brief 默认日志器
+   */
+  Obj::Ptr m_default_logger;
+};
+
+using Mgr = Single<Manager>;
 
 } // namespace log
 } // namespace seeker

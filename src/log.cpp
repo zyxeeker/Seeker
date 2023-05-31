@@ -10,7 +10,9 @@
 #include <fstream>
 #include <map>
 #include <functional>
+#include "exception.h"
 
+#define DEFAULT_LOGGER_NAME           "root"
 #define DEFAULT_FORMATTER_PATTERN     "%d [%P](%r){%F:%L(%N)} %m"
 #define DEFAULT_DATETIME_PATTERN      "%Y-%m-%d %H:%M"
 #define EMPTY_PARAM                   ""
@@ -183,7 +185,7 @@ class StringItem : public Formatter::IItem {
 };
 //// Formatter Item End
 
-bool Formatter::Init() {
+void Formatter::Init() {
   static std::map<std::string, 
                   std::function<Formatter::IItem::Ptr(std::string)> > k_formatter_cb = {
 #define ITEM(key, item) \
@@ -238,8 +240,7 @@ bool Formatter::Init() {
         }
 
         if (last_bracket_index <= front_bracket_index) {
-          printf("Fail to parse: Illegal datetime formatting string, maybe miss a bracket?\n");
-          return false;
+          throw exception::LoggerParseInvalidKey("Fail to parse: Illegal datetime formatting string, maybe miss a bracket?");
         }
         std::string date_sub_string = m_raw.substr(++front_bracket_index,
                                                      last_bracket_index - front_bracket_index - 1);
@@ -251,23 +252,24 @@ bool Formatter::Init() {
       } else {
         auto res = k_formatter_cb.find(m_raw.substr(j, 1));
         if (res == k_formatter_cb.end()) {
-          printf("Fail to parse: Unknown param: \"%c\" at %d\n", m_raw[j], j);
-          return false;
+          std::stringstream ss;
+          ss << "failed to parse: unknown param \"" << m_raw[j]
+             << "\" at " << j;
+          throw exception::LoggerParseInvalidKey(ss.str());
         }
         m_items.push_back(res->second(EMPTY_PARAM));
       }
     }
   }
-  return true;
 }
 
-//// Outputer Begin
+//// Output Begin
 /**
  * @brief 文件输出类
  */
-class FileOutputer : public IOutput {
+class FileOutput : public IOutput {
  public:
-  FileOutputer(std::string file_name) 
+  FileOutput(std::string file_name) 
     : m_file_name(std::move(file_name)) {}
   /**
    * @brief 打开目标文件
@@ -290,7 +292,7 @@ class FileOutputer : public IOutput {
       m_stream.close();
     return Open();
   }
-  void Output(std::string &buf) override {
+  void Output(const std::string &buf) override {
     m_stream << buf << std::endl;
   }
   /**
@@ -307,26 +309,65 @@ class FileOutputer : public IOutput {
 /**
  * @brief 控制台输出类
  */
-class StdOutputer : public IOutput {
+class StdOutput : public IOutput {
  public:
-  void Output(std::string &buf) override {
+  void Output(const std::string &buf) override {
     std::cout << buf << std::endl;
   }
 };
-//// Outputer End
+//// Output End
 
-bool Obj::Init() {
-  return m_formatter->Init();
+Obj::Obj(std::string name, std::string format_str) 
+    : m_name(std::move(name)),
+      m_formatter(new Formatter(std::move(format_str))) {
+  // DEBUG ONLY
+#if 1
+  AddOutput(IOutput::Ptr(new StdOutput()));
+  auto a = new FileOutput("test.log");
+  a->Open();
+  AddOutput(IOutput::Ptr(a));
+#endif
+  m_formatter->Init();
 }
 
 void Obj::Output(Event::Ptr e) {
   std::stringstream ss;
-  // TODO: 多方输出
   for (auto &i : m_formatter->GetItems()) {
     i->ToStream(ss, m_name, e);
   }
-  // TODO
-  std::cout << ss.str() << std::endl;
+  for (auto &i : m_outputs) {
+    i->Output(ss.str());
+  }
+}
+
+Manager::Manager() {
+  // 默认日志器构建失败抛出异常
+  try {
+    m_default_logger = Obj::Ptr(
+        new Obj(DEFAULT_LOGGER_NAME, 
+                DEFAULT_FORMATTER_PATTERN));
+  } catch (...) {
+    throw exception::LoggerInitError(m_default_logger->GetName());
+  }
+}
+
+Obj::Ptr Manager::GetLogger(std::string key) {
+  auto res = m_loggers.find(key);
+  // 若不存在返回管理器中默认日志器
+  return res == m_loggers.end() ? m_default_logger : res->second;
+}
+
+void Manager::AddLogger(Obj::Ptr l) {
+  auto res = m_loggers.find(l->GetName());
+  // 存储的对象中未有重名的日志器时进行添加, 反之则交换格式器
+  if (res == m_loggers.end())
+    m_loggers[l->GetName()] = l;
+  else
+    res->second->SetFormatter(l->GetFormatter());
+}
+
+void Manager::DeleteLogger(std::string logger_name) {
+  m_loggers.erase(logger_name);
 }
 
 } // namespace log
