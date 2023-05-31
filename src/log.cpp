@@ -53,7 +53,7 @@ Level::level Level::FromString(std::string l_str) {
 
 //// Formatter Item Begin
 
-class LoggerNameItem : public Formatter::IItem {
+class LoggerNameItem : public FormattingMgr::IItem {
  public:
   LoggerNameItem(std::string buf) {}
   void ToStream(std::stringstream &ss, 
@@ -66,7 +66,7 @@ class LoggerNameItem : public Formatter::IItem {
 /**
  * @brief 等级项
  */
-class LevelItem : public Formatter::IItem {
+class LevelItem : public FormattingMgr::IItem {
  public:
   LevelItem(std::string buf) {}
   void ToStream(std::stringstream &ss, 
@@ -79,7 +79,7 @@ class LevelItem : public Formatter::IItem {
 /**
  * @brief 文件名项
  */
-class FileNameItem : public Formatter::IItem {
+class FileNameItem : public FormattingMgr::IItem {
  public:
   FileNameItem(std::string buf) {}
   void ToStream(std::stringstream &ss, 
@@ -92,7 +92,7 @@ class FileNameItem : public Formatter::IItem {
 /**
  * @brief 函数名项
  */
-class FunctionItem : public Formatter::IItem {
+class FunctionItem : public FormattingMgr::IItem {
  public:
   FunctionItem(std::string buf) {}
   void ToStream(std::stringstream &ss, 
@@ -105,7 +105,7 @@ class FunctionItem : public Formatter::IItem {
 /**
  * @brief 行号项
  */
-class LineItem : public Formatter::IItem {
+class LineItem : public FormattingMgr::IItem {
  public:
   LineItem(std::string buf) {}
   void ToStream(std::stringstream &ss, 
@@ -118,7 +118,7 @@ class LineItem : public Formatter::IItem {
 /**
  * @brief 时间戳项
  */
-class TimeItem : public Formatter::IItem {
+class TimeItem : public FormattingMgr::IItem {
  public:
   TimeItem(std::string buf) {}
   void ToStream(std::stringstream &ss, 
@@ -132,7 +132,7 @@ class TimeItem : public Formatter::IItem {
 /**
  * @brief 线程ID项
  */
-class ThreadIdItem : public Formatter::IItem {
+class ThreadIdItem : public FormattingMgr::IItem {
  public:
   ThreadIdItem(std::string buf) {}
   void ToStream(std::stringstream &ss, 
@@ -145,7 +145,7 @@ class ThreadIdItem : public Formatter::IItem {
 /**
  * @brief 线程名项
  */
-class ThreadNameItem : public Formatter::IItem {
+class ThreadNameItem : public FormattingMgr::IItem {
  public:
   ThreadNameItem(std::string buf) {}
   void ToStream(std::stringstream &ss, 
@@ -158,7 +158,7 @@ class ThreadNameItem : public Formatter::IItem {
 /**
  * @brief 内容项
  */
-class ContentItem : public Formatter::IItem {
+class ContentItem : public FormattingMgr::IItem {
  public:
   ContentItem(std::string buf) {}
   void ToStream(std::stringstream &ss, 
@@ -171,7 +171,7 @@ class ContentItem : public Formatter::IItem {
 /**
  * @brief 其他字符项
  */
-class StringItem : public Formatter::IItem {
+class StringItem : public FormattingMgr::IItem {
  public:
   StringItem(std::string buf) 
     : m_buff(std::move(buf)) {}
@@ -185,11 +185,11 @@ class StringItem : public Formatter::IItem {
 };
 //// Formatter Item End
 
-void Formatter::Init() {
+void FormattingMgr::Init() {
   static std::map<std::string, 
-                  std::function<Formatter::IItem::Ptr(std::string)> > k_formatter_cb = {
+                  std::function<FormattingMgr::IItem::Ptr(std::string)> > k_formatter_cb = {
 #define ITEM(key, item) \
-    {#key, [](std::string buf){ return Formatter::IItem::Ptr(new item(std::move(buf))); }},
+    {#key, [](std::string buf){ return FormattingMgr::IItem::Ptr(new item(std::move(buf))); }},
 
       ITEM(r, LoggerNameItem)       // r 日志名称
       ITEM(P, LevelItem)            // P 日志等级
@@ -211,7 +211,7 @@ void Formatter::Init() {
       continue;
     }
     // 为%
-    m_items.push_back(k_formatter_cb["S"](sub_str));
+    m_item_arr.push_back(k_formatter_cb["S"](sub_str));
     sub_str.clear();
 
     j = ++i;
@@ -222,7 +222,7 @@ void Formatter::Init() {
         ++j;
         // 判断时间key后是否带有自定义时间格式 {YY-MM-dd}
         if (std::isspace(m_raw[j]) || m_raw[j] != '{') {
-          m_items.push_back(k_formatter_cb["d"](DEFAULT_DATETIME_PATTERN));
+          m_item_arr.push_back(k_formatter_cb["d"](DEFAULT_DATETIME_PATTERN));
           continue;
         }
         // { }对应判断
@@ -246,7 +246,7 @@ void Formatter::Init() {
                                                      last_bracket_index - front_bracket_index - 1);
         // std::cout << date_sub_string << std::endl;
 
-        m_items.push_back(k_formatter_cb["d"](date_sub_string));
+        m_item_arr.push_back(k_formatter_cb["d"](date_sub_string));
         i = last_bracket_index;
         //// Parse Time End
       } else {
@@ -257,7 +257,7 @@ void Formatter::Init() {
              << "\" at " << j;
           throw exception::LoggerParseInvalidKey(ss.str());
         }
-        m_items.push_back(res->second(EMPTY_PARAM));
+        m_item_arr.push_back(res->second(EMPTY_PARAM));
       }
     }
   }
@@ -267,7 +267,7 @@ void Formatter::Init() {
 /**
  * @brief 文件输出类
  */
-class FileOutput : public IOutput {
+class FileOutput : public OutputMgr::IOutput {
  public:
   FileOutput(std::string file_name) 
     : m_file_name(std::move(file_name)) {}
@@ -309,7 +309,7 @@ class FileOutput : public IOutput {
 /**
  * @brief 控制台输出类
  */
-class StdOutput : public IOutput {
+class StdOutput : public OutputMgr::IOutput {
  public:
   void Output(const std::string &buf) override {
     std::cout << buf << std::endl;
@@ -319,23 +319,24 @@ class StdOutput : public IOutput {
 
 Obj::Obj(std::string name, std::string format_str) 
     : m_name(std::move(name)),
-      m_formatter(new Formatter(std::move(format_str))) {
+      m_formatting_mgr(new FormattingMgr(std::move(format_str))),
+      m_output_mgr(new OutputMgr()) {
   // DEBUG ONLY
 #if 1
-  AddOutput(IOutput::Ptr(new StdOutput()));
+  AddOutput(OutputMgr::IOutput::Ptr(new StdOutput()));
   auto a = new FileOutput("test.log");
   a->Open();
-  AddOutput(IOutput::Ptr(a));
+  AddOutput(OutputMgr::IOutput::Ptr(a));
 #endif
-  m_formatter->Init();
+  m_formatting_mgr->Init();
 }
 
 void Obj::Output(Event::Ptr e) {
   std::stringstream ss;
-  for (auto &i : m_formatter->GetItems()) {
+  for (auto &i : m_formatting_mgr->GetItemArr()) {
     i->ToStream(ss, m_name, e);
   }
-  for (auto &i : m_outputs) {
+  for (auto &i : m_output_mgr->GetOutputArr()) {
     i->Output(ss.str());
   }
 }
@@ -359,11 +360,13 @@ Obj::Ptr Manager::GetLogger(std::string key) {
 
 void Manager::AddLogger(Obj::Ptr l) {
   auto res = m_loggers.find(l->GetName());
-  // 存储的对象中未有重名的日志器时进行添加, 反之则交换格式器
+  // 存储的对象中未有重名的日志器时进行添加, 反之则替换格式和输出管理器
   if (res == m_loggers.end())
     m_loggers[l->GetName()] = l;
-  else
-    res->second->SetFormatter(l->GetFormatter());
+  else {
+    res->second->SetFormattingMgr(l->GetFormattingMgr());
+    res->second->SetOutputMgr(l->GetOutputMgr());
+  }
 }
 
 void Manager::DeleteLogger(std::string logger_name) {

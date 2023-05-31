@@ -87,12 +87,12 @@ struct Event {
 };
 
 /**
- * @brief 日志格式类，用于解析格式和存储解析后各子项的顺序
+ * @brief 日志格式管理类, 用于解析格式和存储解析后各子项的顺序
  */
-class Formatter {
+class FormattingMgr {
  public:
-  using Ptr = std::shared_ptr<Formatter>;
-  Formatter(std::string format_str) 
+  using Ptr = std::shared_ptr<FormattingMgr>;
+  FormattingMgr(std::string format_str) 
     : m_raw(std::move(format_str)) {}
   /**
    * @brief 初始化对格式进行解析
@@ -108,7 +108,7 @@ class Formatter {
   }
 
   /**
-   * @brief 格式参数项接口
+   * @brief 格式参数项接口(子模块)
    */
   class IItem {
    public:
@@ -126,26 +126,22 @@ class Formatter {
   /**
    * @brief 添加子项
    */
-  void AddItems(IItem::Ptr item) {
-    m_items.push_back(item);
+  void AddItem(IItem::Ptr item) {
+    m_item_arr.push_back(item);
   }
   /**
    * @brief 清空子项数组
    */
-  void ClearItems() {
-    m_items.clear();
+  void ClearItemArr() {
+    m_item_arr.clear();
   }
   /**
    * @brief 返回子项数组
    * @return const std::vector<IItem::Ptr>& 
    */
-  const std::vector<IItem::Ptr>& GetItems() const {
-    return m_items;
+  const std::vector<IItem::Ptr>& GetItemArr() const {
+    return m_item_arr;
   }
-  std::vector<IItem::Ptr> GetItem() const {
-    return m_items;
-  }
-
  private:
   /**
    * @brief 原始格式字符串
@@ -154,25 +150,55 @@ class Formatter {
   /**
    * @brief 解析后的格式子项数组
    */
-  std::vector<IItem::Ptr> m_items;
+  std::vector<IItem::Ptr> m_item_arr;
 };
 
 /**
- * @brief 日志输出接口
+ * @brief 日志输出管理类
  */
-class IOutput {
+class OutputMgr {
  public:
-  using Ptr = std::shared_ptr<IOutput>;
-  virtual ~IOutput() {}
+  using Ptr = std::shared_ptr<OutputMgr>;
   /**
-   * @brief 输出接口
-   * @param buf 传入的字符串数据
+   * @brief 日志输出接口(子模块)
    */
-  virtual void Output(const std::string &buf) = 0;
+  class IOutput {
+  public:
+    using Ptr = std::shared_ptr<IOutput>;
+    virtual ~IOutput() {}
+    /**
+     * @brief 输出接口
+     * @param buf 传入的字符串数据
+     */
+    virtual void Output(const std::string &buf) = 0;
+  };
+  /**
+   * @brief 添加输出
+   */
+  void AddOutput(IOutput::Ptr output) {
+    m_output_arr.push_back(output);
+  }
+  /**
+   * @brief 清空输出数组
+   */
+  void ClearOutputArr() {
+    m_output_arr.clear();
+  }
+  /**
+   * @brief 获取输出数组
+   */
+  const std::vector<IOutput::Ptr>& GetOutputArr() const {
+    return m_output_arr;
+  }
+ private:
+  /**
+   * @brief 输出数组
+   */
+  std::vector<IOutput::Ptr> m_output_arr;
 };
 
 /**
- * @brief 日志类, 用于输出至控制台和文件
+ * @brief 日志类, 用于将事件输出至控制台和文件
  */
 class Obj {
  public:
@@ -192,14 +218,14 @@ class Obj {
   /**
    * @brief 添加输出
    */
-  void AddOutput(IOutput::Ptr o) {
-    m_outputs.push_back(o);
+  void AddOutput(OutputMgr::IOutput::Ptr output) {
+    m_output_mgr->AddOutput(output);
   }
   /**
    * @brief 清空输出
    */
   void ClearOutputs() {
-    m_outputs.clear();
+    m_output_mgr->ClearOutputArr();
   }
   /**
    * @brief 获取日志名
@@ -208,18 +234,32 @@ class Obj {
     return m_name;
   }
   /**
-   * @brief 获取格式器
-   * @return Formatter::Ptr 格式器智能指针
+   * @brief 获取格式管理器
+   * @return FormattingMgr::Ptr 管理器指针
    */
-  Formatter::Ptr GetFormatter() const {
-    return m_formatter;
+  FormattingMgr::Ptr GetFormattingMgr() const {
+    return m_formatting_mgr;
   }
   /**
-   * @brief 设置格式器
-   * @param formatter 格式器指针
+   * @brief 获取输出管理器
+   * @return OutputMgr::Ptr 管理器指针
    */
-  void SetFormatter(Formatter::Ptr formatter) {
-    m_formatter = formatter;
+  OutputMgr::Ptr GetOutputMgr() const {
+    return m_output_mgr;
+  }
+  /**
+   * @brief 设置格式管理器
+   * @param formatting_mgr 管理器指针
+   */
+  void SetFormattingMgr(FormattingMgr::Ptr formatting_mgr) {
+    m_formatting_mgr = formatting_mgr;
+  }
+  /**
+   * @brief 设置输出管理器
+   * @param output_mgr 管理器指针
+   */
+  void SetOutputMgr(OutputMgr::Ptr output_mgr) {
+    m_output_mgr = output_mgr;
   }
  private:
   /**
@@ -227,10 +267,13 @@ class Obj {
     */
   std::string m_name;
   /**
-   * @brief 日志格式
+   * @brief 日志格式管理器
    */
-  Formatter::Ptr m_formatter;
-  std::vector<IOutput::Ptr> m_outputs;
+  FormattingMgr::Ptr m_formatting_mgr;
+  /**
+   * @brief 日志输出管理器
+   */
+  OutputMgr::Ptr m_output_mgr;
 };
 
 /**
