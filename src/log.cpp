@@ -120,13 +120,19 @@ class LineItem : public FormattingMgr::IItem {
  */
 class TimeItem : public FormattingMgr::IItem {
  public:
-  TimeItem(std::string buf) {}
+  TimeItem(std::string buf)
+    : m_format(buf) {}
   void ToStream(std::stringstream &ss, 
                 std::string& logger_name, 
                 Event::Ptr e) override {
-    // TODO
+  // 当没有格式时默认输出时间戳
+  if (m_format.length() == 0)
     ss << e->time;
+  else
+    TimeStampToString(m_format, e->time);
   }
+ private:
+  std::string m_format;
 };
 
 /**
@@ -138,7 +144,7 @@ class ThreadIdItem : public FormattingMgr::IItem {
   void ToStream(std::stringstream &ss, 
                 std::string& logger_name, 
                 Event::Ptr e) override {
-    // TODO
+    ss << e->thread_id;
   }
 };
 
@@ -151,7 +157,7 @@ class ThreadNameItem : public FormattingMgr::IItem {
   void ToStream(std::stringstream &ss, 
                 std::string& logger_name, 
                 Event::Ptr e) override {
-    // TODO
+    ss << e->thread_name;
   }
 };
 

@@ -75,7 +75,7 @@ struct Event {
   /**
    * @brief 线程ID
    */
-  uint32_t thread_id;
+  TID thread_id;
   /**
    * @brief 线程名
    */
