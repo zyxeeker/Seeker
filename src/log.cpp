@@ -72,7 +72,7 @@ class LevelItem : public FormattingMgr::IItem {
   void ToStream(std::stringstream &ss, 
                 std::string& logger_name, 
                 Event::Ptr e) override {
-    ss << Level::ToString(e->level);
+    ss << Level::ToString(e->level_);
   }
 };
 
@@ -85,7 +85,7 @@ class FileNameItem : public FormattingMgr::IItem {
   void ToStream(std::stringstream &ss, 
                 std::string& logger_name, 
                 Event::Ptr e) override {
-    ss << e->file_name;
+    ss << e->file_name_;
   }
 };
 
@@ -98,7 +98,7 @@ class FunctionItem : public FormattingMgr::IItem {
   void ToStream(std::stringstream &ss, 
                 std::string& logger_name, 
                 Event::Ptr e) override {
-    ss << e->function;
+    ss << e->function_name_;
   }
 };
 
@@ -111,7 +111,7 @@ class LineItem : public FormattingMgr::IItem {
   void ToStream(std::stringstream &ss, 
                 std::string& logger_name, 
                 Event::Ptr e) override {
-    ss << e->line;
+    ss << e->line_num_;
   }
 };
 
@@ -121,18 +121,18 @@ class LineItem : public FormattingMgr::IItem {
 class TimeItem : public FormattingMgr::IItem {
  public:
   TimeItem(std::string buf)
-    : m_format(buf) {}
+    : format_(buf) {}
   void ToStream(std::stringstream &ss, 
                 std::string& logger_name, 
                 Event::Ptr e) override {
   // 当没有格式时默认输出时间戳
-  if (m_format.length() == 0)
-    ss << e->time;
+  if (format_.length() == 0)
+    ss << e->timestamp_;
   else
-    TimeStampToString(m_format, e->time);
+    TimeStampToString(format_, e->timestamp_);
   }
  private:
-  std::string m_format;
+  std::string format_;
 };
 
 /**
@@ -144,7 +144,7 @@ class ThreadIdItem : public FormattingMgr::IItem {
   void ToStream(std::stringstream &ss, 
                 std::string& logger_name, 
                 Event::Ptr e) override {
-    ss << e->thread_id;
+    ss << e->thread_id_;
   }
 };
 
@@ -157,7 +157,7 @@ class ThreadNameItem : public FormattingMgr::IItem {
   void ToStream(std::stringstream &ss, 
                 std::string& logger_name, 
                 Event::Ptr e) override {
-    ss << e->thread_name;
+    ss << e->thread_name_;
   }
 };
 
@@ -170,7 +170,7 @@ class ContentItem : public FormattingMgr::IItem {
   void ToStream(std::stringstream &ss, 
                 std::string& logger_name, 
                 Event::Ptr e) override {
-    ss << e->content;
+    ss << e->content_.str();
   }
 };
 
@@ -180,14 +180,14 @@ class ContentItem : public FormattingMgr::IItem {
 class StringItem : public FormattingMgr::IItem {
  public:
   StringItem(std::string buf) 
-    : m_buff(std::move(buf)) {}
+    : buff_(std::move(buf)) {}
   void ToStream(std::stringstream &ss, 
                 std::string& logger_name, 
                 Event::Ptr e) override {
-    ss << m_buff;
+    ss << buff_;
   }
  private:
-  std::string m_buff;
+  std::string buff_;
 };
 //// Formatter Item End
 
@@ -210,33 +210,33 @@ void FormattingMgr::Init() {
 #undef ITEM
   };
   std::string sub_str;
-  for (uint32_t i = 0, j; i < m_raw.size(); i++) {
+  for (int i = 0, j; i < raw_.size(); i++) {
     // 不为%
-    if (m_raw[i] != '%') {
-      sub_str.append(1, m_raw[i]);
+    if (raw_[i] != '%') {
+      sub_str.append(1, raw_[i]);
       continue;
     }
     // 为%
-    m_item_arr.push_back(k_formatter_cb["S"](sub_str));
+    item_arr_.push_back(k_formatter_cb["S"](sub_str));
     sub_str.clear();
 
     j = ++i;
     // 判断key值
-    if (j < m_raw.size()) {
-      if (m_raw[j] == 'd') {
+    if (j < raw_.size()) {
+      if (raw_[j] == 'd') {
         //// Parse Time Begin
         ++j;
         // 判断时间key后是否带有自定义时间格式 {YY-MM-dd}
-        if (std::isspace(m_raw[j]) || m_raw[j] != '{') {
-          m_item_arr.push_back(k_formatter_cb["d"](DEFAULT_DATETIME_PATTERN));
+        if (std::isspace(raw_[j]) || raw_[j] != '{') {
+          item_arr_.push_back(k_formatter_cb["d"](DEFAULT_DATETIME_PATTERN));
           continue;
         }
         // { }对应判断
-        uint32_t front_bracket_index = j, front_bracket_count = 0, last_bracket_index = 0;
-        for (++j; j < m_raw.size(); j++) {
-          if (m_raw[j] == '{')
+        int front_bracket_index = j, front_bracket_count = 0, last_bracket_index = 0;
+        for (++j; j < raw_.size(); j++) {
+          if (raw_[j] == '{')
             ++front_bracket_count;
-          if (m_raw[j] == '}') {
+          if (raw_[j] == '}') {
             last_bracket_index = j;
             if (front_bracket_count > 0)
               --front_bracket_count;
@@ -248,22 +248,22 @@ void FormattingMgr::Init() {
         if (last_bracket_index <= front_bracket_index) {
           throw exception::LoggerParseInvalidKey("Fail to parse: Illegal datetime formatting string, maybe miss a bracket?");
         }
-        std::string date_sub_string = m_raw.substr(++front_bracket_index,
+        std::string date_sub_string = raw_.substr(++front_bracket_index,
                                                      last_bracket_index - front_bracket_index - 1);
         // std::cout << date_sub_string << std::endl;
 
-        m_item_arr.push_back(k_formatter_cb["d"](date_sub_string));
+        item_arr_.push_back(k_formatter_cb["d"](date_sub_string));
         i = last_bracket_index;
         //// Parse Time End
       } else {
-        auto res = k_formatter_cb.find(m_raw.substr(j, 1));
+        auto res = k_formatter_cb.find(raw_.substr(j, 1));
         if (res == k_formatter_cb.end()) {
           std::stringstream ss;
-          ss << "failed to parse: unknown param \"" << m_raw[j]
+          ss << "failed to parse: unknown param \"" << raw_[j]
              << "\" at " << j;
           throw exception::LoggerParseInvalidKey(ss.str());
         }
-        m_item_arr.push_back(res->second(EMPTY_PARAM));
+        item_arr_.push_back(res->second(EMPTY_PARAM));
       }
     }
   }
@@ -276,15 +276,15 @@ void FormattingMgr::Init() {
 class FileOutput : public OutputMgr::IOutput {
  public:
   FileOutput(std::string file_name) 
-    : m_file_name(std::move(file_name)) {}
+    : file_name_(std::move(file_name)) {}
   /**
    * @brief 打开目标文件
    */
   bool Open() {
-    m_stream.open(m_file_name, std::ios::out | std::ios::app);
-    if (!m_stream.good()) {
+    stream_.open(file_name_, std::ios::out | std::ios::app);
+    if (!stream_.good()) {
       std::cout << "Fail to open file to write, file name: "
-                << m_file_name 
+                << file_name_ 
                 << std::endl;
       return false;
     }
@@ -294,22 +294,22 @@ class FileOutput : public OutputMgr::IOutput {
    * @brief 重新打开文件
    */
   bool Reopen() {
-    if (m_stream.is_open())
-      m_stream.close();
+    if (stream_.is_open())
+      stream_.close();
     return Open();
   }
   void Output(const std::string &buf) override {
-    m_stream << buf << std::endl;
+    stream_ << buf << std::endl;
   }
   /**
    * @brief 返回文件名
    */
-  std::string GetFileName() const {
-    return m_file_name;
+  std::string file_name() const {
+    return file_name_;
   }
  private:
-  std::string m_file_name;
-  std::ofstream m_stream;
+  std::string file_name_;
+  std::ofstream stream_;
 };
 
 /**
@@ -323,10 +323,10 @@ class StdOutput : public OutputMgr::IOutput {
 };
 //// Output End
 
-Obj::Obj(std::string name, std::string format_str) 
-    : m_name(std::move(name)),
-      m_formatting_mgr(new FormattingMgr(std::move(format_str))),
-      m_output_mgr(new OutputMgr()) {
+Logger::Logger(std::string name, std::string format_str) 
+    : name_(std::move(name)),
+      formatting_mgr_(new FormattingMgr(std::move(format_str))),
+      output_mgr_(new OutputMgr()) {
   // DEBUG ONLY
 #if 1
   AddOutput(OutputMgr::IOutput::Ptr(new StdOutput()));
@@ -334,15 +334,15 @@ Obj::Obj(std::string name, std::string format_str)
   a->Open();
   AddOutput(OutputMgr::IOutput::Ptr(a));
 #endif
-  m_formatting_mgr->Init();
+  formatting_mgr_->Init();
 }
 
-void Obj::Output(Event::Ptr e) {
+void Logger::Output(Event::Ptr e) {
   std::stringstream ss;
-  for (auto &i : m_formatting_mgr->GetItemArr()) {
-    i->ToStream(ss, m_name, e);
+  for (auto &i : formatting_mgr_->item_arr()) {
+    i->ToStream(ss, name_, e);
   }
-  for (auto &i : m_output_mgr->GetOutputArr()) {
+  for (auto &i : output_mgr_->output_arr()) {
     i->Output(ss.str());
   }
 }
@@ -350,33 +350,33 @@ void Obj::Output(Event::Ptr e) {
 Manager::Manager() {
   // 默认日志器构建失败抛出异常
   try {
-    m_default_logger = Obj::Ptr(
-        new Obj(DEFAULT_LOGGER_NAME, 
+    default_logger_ = Logger::Ptr(
+        new Logger(DEFAULT_LOGGER_NAME, 
                 DEFAULT_FORMATTER_PATTERN));
   } catch (...) {
-    throw exception::LoggerInitError(m_default_logger->GetName());
+    throw exception::LoggerInitError(default_logger_->name());
   }
 }
 
-Obj::Ptr Manager::GetLogger(std::string key) {
-  auto res = m_loggers.find(key);
+Logger::Ptr Manager::GetLogger(std::string key) {
+  auto res = loggers_.find(key);
   // 若不存在返回管理器中默认日志器
-  return res == m_loggers.end() ? m_default_logger : res->second;
+  return res == loggers_.end() ? default_logger_ : res->second;
 }
 
-void Manager::AddLogger(Obj::Ptr l) {
-  auto res = m_loggers.find(l->GetName());
+void Manager::AddLogger(Logger::Ptr l) {
+  auto res = loggers_.find(l->name());
   // 存储的对象中未有重名的日志器时进行添加, 反之则替换格式和输出管理器
-  if (res == m_loggers.end())
-    m_loggers[l->GetName()] = l;
+  if (res == loggers_.end())
+    loggers_[l->name()] = l;
   else {
-    res->second->SetFormattingMgr(l->GetFormattingMgr());
-    res->second->SetOutputMgr(l->GetOutputMgr());
+    res->second->set_formatting_mgr(l->formatting_mgr());
+    res->second->set_output_mgr(l->output_mgr());
   }
 }
 
 void Manager::DeleteLogger(std::string logger_name) {
-  m_loggers.erase(logger_name);
+  loggers_.erase(logger_name);
 }
 
 } // namespace log

@@ -55,35 +55,35 @@ struct Event {
   /**
    * @brief 等级
    */
-  Level::level level;
+  Level::level level_;
   /**
    * @brief 文件名
    */
-  const char* file_name;
+  const char* file_name_;
   /**
    * @brief 函数名
    */
-  const char* function;
+  const char* function_name_;
   /**
    * @brief 行号
    */
-  uint32_t line;
+  int line_num_;
   /**
    * @brief 时间戳
    */
-  uint64_t time;
+  uint64_t timestamp_;
   /**
    * @brief 线程ID
    */
-  TID thread_id;
+  TID thread_id_;
   /**
    * @brief 线程名
    */
-  std::string thread_name;
+  std::string thread_name_;
   /**
    * @brief 内容
    */
-  std::string content;
+  std::ostringstream content_;
 };
 
 /**
@@ -93,7 +93,7 @@ class FormattingMgr {
  public:
   using Ptr = std::shared_ptr<FormattingMgr>;
   FormattingMgr(std::string format_str) 
-    : m_raw(std::move(format_str)) {}
+    : raw_(std::move(format_str)) {}
   /**
    * @brief 初始化对格式进行解析
    * @throw 不成功则抛出异常exception::ParseInvalidKey
@@ -103,8 +103,8 @@ class FormattingMgr {
    * @brief 返回格式字符串
    * @return std::string 
    */
-  std::string GetRaw() const {
-    return m_raw;
+  std::string raw() const {
+    return raw_;
   }
 
   /**
@@ -127,30 +127,30 @@ class FormattingMgr {
    * @brief 添加子项
    */
   void AddItem(IItem::Ptr item) {
-    m_item_arr.push_back(item);
+    item_arr_.push_back(item);
   }
   /**
    * @brief 清空子项数组
    */
   void ClearItemArr() {
-    m_item_arr.clear();
+    item_arr_.clear();
   }
   /**
    * @brief 返回子项数组
    * @return const std::vector<IItem::Ptr>& 
    */
-  const std::vector<IItem::Ptr>& GetItemArr() const {
-    return m_item_arr;
+  const std::vector<IItem::Ptr>& item_arr() const {
+    return item_arr_;
   }
  private:
   /**
    * @brief 原始格式字符串
    */
-  std::string m_raw;
+  std::string raw_;
   /**
    * @brief 解析后的格式子项数组
    */
-  std::vector<IItem::Ptr> m_item_arr;
+  std::vector<IItem::Ptr> item_arr_;
 };
 
 /**
@@ -176,40 +176,40 @@ class OutputMgr {
    * @brief 添加输出
    */
   void AddOutput(IOutput::Ptr output) {
-    m_output_arr.push_back(output);
+    output_arr_.push_back(output);
   }
   /**
    * @brief 清空输出数组
    */
   void ClearOutputArr() {
-    m_output_arr.clear();
+    output_arr_.clear();
   }
   /**
    * @brief 获取输出数组
    */
-  const std::vector<IOutput::Ptr>& GetOutputArr() const {
-    return m_output_arr;
+  const std::vector<IOutput::Ptr>& output_arr() const {
+    return output_arr_;
   }
  private:
   /**
    * @brief 输出数组
    */
-  std::vector<IOutput::Ptr> m_output_arr;
+  std::vector<IOutput::Ptr> output_arr_;
 };
 
 /**
  * @brief 日志类, 用于将事件输出至控制台和文件
  */
-class Obj {
+class Logger {
  public:
-  using Ptr = std::shared_ptr<Obj>;
+  using Ptr = std::shared_ptr<Logger>;
   /**
    * @brief 构建日志器并对格式进行解析
    * @param name 日志名字
    * @param format_str 日志格式字符串
    * @throw 解析不成功抛出异常exception::ParseInvalidKey
    */
-  Obj(std::string name, std::string format_str);
+  Logger(std::string name, std::string format_str);
   /**
    * @brief 输出
    * @param e 日志事件
@@ -219,61 +219,61 @@ class Obj {
    * @brief 添加输出
    */
   void AddOutput(OutputMgr::IOutput::Ptr output) {
-    m_output_mgr->AddOutput(output);
+    output_mgr_->AddOutput(output);
   }
   /**
    * @brief 清空输出
    */
   void ClearOutputs() {
-    m_output_mgr->ClearOutputArr();
+    output_mgr_->ClearOutputArr();
   }
   /**
    * @brief 获取日志名
    */
-  std::string GetName() const {
-    return m_name;
+  std::string name() const {
+    return name_;
   }
   /**
    * @brief 获取格式管理器
    * @return FormattingMgr::Ptr 管理器指针
    */
-  FormattingMgr::Ptr GetFormattingMgr() const {
-    return m_formatting_mgr;
+  FormattingMgr::Ptr formatting_mgr() const {
+    return formatting_mgr_;
   }
   /**
    * @brief 获取输出管理器
    * @return OutputMgr::Ptr 管理器指针
    */
-  OutputMgr::Ptr GetOutputMgr() const {
-    return m_output_mgr;
+  OutputMgr::Ptr output_mgr() const {
+    return output_mgr_;
   }
   /**
    * @brief 设置格式管理器
    * @param formatting_mgr 管理器指针
    */
-  void SetFormattingMgr(FormattingMgr::Ptr formatting_mgr) {
-    m_formatting_mgr = formatting_mgr;
+  void set_formatting_mgr(FormattingMgr::Ptr formatting_mgr) {
+    formatting_mgr_ = formatting_mgr;
   }
   /**
    * @brief 设置输出管理器
    * @param output_mgr 管理器指针
    */
-  void SetOutputMgr(OutputMgr::Ptr output_mgr) {
-    m_output_mgr = output_mgr;
+  void set_output_mgr(OutputMgr::Ptr output_mgr) {
+    output_mgr_ = output_mgr;
   }
  private:
   /**
     * @brief 日志名字
     */
-  std::string m_name;
+  std::string name_;
   /**
    * @brief 日志格式管理器
    */
-  FormattingMgr::Ptr m_formatting_mgr;
+  FormattingMgr::Ptr formatting_mgr_;
   /**
    * @brief 日志输出管理器
    */
-  OutputMgr::Ptr m_output_mgr;
+  OutputMgr::Ptr output_mgr_;
 };
 
 /**
@@ -290,30 +290,30 @@ class Manager {
    * @brief 获取指定日志器
    * @param key 日志器名
    */
-  Obj::Ptr GetLogger(std::string key);
-  /**
-   * @brief 返回默认日志器 
-   */
-  Obj::Ptr GetDefaultLogger() {
-    return m_default_logger;
-  }
+  Logger::Ptr GetLogger(std::string key);
   /**
    * @brief 添加日志器
    */
-  void AddLogger(Obj::Ptr l);
+  void AddLogger(Logger::Ptr l);
   /**
    * @brief 删除指定日志器
    */
   void DeleteLogger(std::string logger_name);
+  /**
+   * @brief 获取默认日志器 
+   */
+  Logger::Ptr default_logger() {
+    return default_logger_;
+  }
  private:
   /**
   * @brief 日志器字典
   */
-  std::unordered_map<std::string, Obj::Ptr> m_loggers;
+  std::unordered_map<std::string, Logger::Ptr> loggers_;
   /**
    * @brief 默认日志器
    */
-  Obj::Ptr m_default_logger;
+  Logger::Ptr default_logger_;
 };
 
 using Mgr = Single<Manager>;
