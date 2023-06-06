@@ -12,11 +12,6 @@
 #include <functional>
 #include "exception.h"
 
-#define DEFAULT_LOGGER_NAME           "root"
-#define DEFAULT_FORMATTER_PATTERN     "%d [%P](%r){%F:%L(%N)} %m"
-#define DEFAULT_DATETIME_PATTERN      "%Y-%m-%d %H:%M"
-#define EMPTY_PARAM                   ""
-
 namespace seeker {
 namespace log {
 
@@ -129,7 +124,7 @@ class TimeItem : public FormattingMgr::IItem {
   if (format_.length() == 0)
     ss << e->timestamp_;
   else
-    TimeStampToString(format_, e->timestamp_);
+    util::TimeStampToString(format_, e->timestamp_);
   }
  private:
   std::string format_;
@@ -378,6 +373,78 @@ void Manager::AddLogger(Logger::Ptr l) {
 void Manager::DeleteLogger(std::string logger_name) {
   loggers_.erase(logger_name);
 }
+
+//// Log::impl Begin
+Log::Impl::Impl(Level::level level,
+                    const char* file_name, 
+                    const char* function_name, 
+                    int line_num,
+                    uint64_t timestamp,
+                    TID thread_id,
+                    std::string logger_name)
+    : event_(new Event {
+        .level_ = level,
+        .file_name_ = file_name,
+        .function_name_ = function_name,
+        .line_num_ = line_num,
+        .timestamp_ = timestamp,
+        .thread_id_ = thread_id,
+        .thread_name_ = "",
+      }),
+      logger_(Mgr::GetInstance().GetLogger(logger_name)) {}
+
+Log::Impl::~Impl() {
+  logger_->Output(event_);
+}
+//// Log::impl End
+
+//// Log Begin
+Log::Log(Level::level level,
+                 const char* file_name, 
+                 const char* function_name, 
+                 int line_num,
+                 uint64_t timestamp,
+                 int thread_id,
+                 std::string logger_name) 
+    : impl_(new Impl(level,
+                     file_name,
+                     function_name,
+                     line_num,
+                     timestamp,
+                     thread_id,
+                     logger_name)) {}
+
+Log::~Log() {
+  swap(impl_->event()->content_);
+}
+//// Log::impl End
+
+/**
+ * @brief 接口函数的实现
+ */
+#define LOG_API_IMPLEMENT(LogName, Level) \
+  Log LogName(std::string logger_name, \
+              const char* file_name, \
+              const char* function_name, \
+              int line_num, \
+              uint64_t timestamp, \
+              int thread_id) { \
+    return Log(Level, \
+               std::move(file_name), \
+               std::move(function_name), \
+               std::move(line_num), \
+               std::move(timestamp), \
+               std::move(thread_id), \
+               std::move(logger_name)); \
+  }
+
+  LOG_API_IMPLEMENT(Debug, Level::DEBUG)
+  LOG_API_IMPLEMENT(Info, Level::INFO)
+  LOG_API_IMPLEMENT(Warn, Level::WARN)
+  LOG_API_IMPLEMENT(Error, Level::ERROR)
+  LOG_API_IMPLEMENT(Fatal, Level::FATAL)
+#undef LOG_API_IMPLEMENT
+
 
 } // namespace log
 } // namespace seeker

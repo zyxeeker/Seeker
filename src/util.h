@@ -9,18 +9,6 @@
 #ifndef _SEEKER_SRC_UTIL_H_
 #define _SEEKER_SRC_UTIL_H_
 
-#include <time.h>
-#include <unistd.h>
-
-/**
- * @brief 线程ID
- */
-#define TID pid_t
-/**
- * @brief 进程ID
- */
-#define PID pid_t
-
 #define DO_NOT_ASSIGN_AND_COPY(C) \
 public:\
 C(C&&) = delete;  \
@@ -65,36 +53,5 @@ class LSingle {
 
  DO_NOT_ASSIGN_AND_COPY(LSingle)
 };
-
-/**
- * @brief 获取时间戳
- */
-static uint64_t GetTimeStamp() {
-  return time(nullptr);
-}
-
-/**
- * @brief 时间戳格式化
- * @param format 格式字符串
- * @param time_stamp 时间戳
- * @return std::string 格式化后的时间戳
- */
-static std::string TimeStampToString(const std::string &format, uint64_t time_stamp) {
-	time_t t = (time_t)time_stamp;
-  time(&t);
-  struct tm *info;
-  info = localtime(&t);
-  char buff[80];
-  strftime(buff, 80, format.c_str(), info);
-  return std::string(buff);
-}
-
-/**
- * @brief 获取当前线程ID
- * @return TID 当前线程ID
- */
-static TID GetThreadId() {
-  return gettid();
-}
 
 #endif //_SEEKER_SRC_UTIL_H_
