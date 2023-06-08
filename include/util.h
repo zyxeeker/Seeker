@@ -11,6 +11,11 @@
 
 #include <unistd.h>
 #include <ctime>
+#include <set>
+#include <list>
+#include <vector>
+#include <string>
+#include <memory>
 
 namespace seeker {
 /**
@@ -25,6 +30,84 @@ using PID = pid_t;
 
 namespace seeker {
 namespace util {
+
+//// Template Begin
+/**
+ * @brief 判断是否为std::vector
+ */
+template<typename>
+struct is_std_vector : std::false_type {};
+
+template<typename T, typename A>
+struct is_std_vector<std::vector<T,A> > : std::true_type {};
+
+/**
+ * @brief 判断是否为std::set
+ */
+template<typename>
+struct is_std_set : std::false_type {};
+
+template<typename T, typename A>
+struct is_std_set<std::set<T,A>> : std::true_type {};
+
+/**
+ * @brief 判断是否为std::list
+ */
+template<typename>
+struct is_std_list : std::false_type {};
+
+template<typename T, typename A>
+struct is_std_list<std::list<T,A>> : std::true_type {};
+
+/**
+ * @brief 单例模式相关宏
+ */
+#define DO_NOT_ASSIGN_AND_COPY(C) \
+public:\
+C(C&&) = delete;  \
+C(const C&) = delete; \
+void operator=(const C&) = delete;
+
+template<class T>
+class Single {
+ public:
+  static T &GetInstance() {
+    return _inst;
+  }
+ private:
+  static T _inst;
+
+  DO_NOT_ASSIGN_AND_COPY(Single)
+};
+
+template<class T>
+T Single<T>::_inst;
+
+template<class T>
+class MSingle {
+ public:
+  static T &GetInstance() {
+    static T _inst;
+    return _inst;
+  }
+  DO_NOT_ASSIGN_AND_COPY(MSingle)
+};
+
+template<class T>
+class LSingle {
+ public:
+  static T &GetInstance() {
+    if (!_inst)
+      _inst.reset(new T);
+    return _inst;
+  }
+ private:
+  static std::shared_ptr<T> _inst;
+
+ DO_NOT_ASSIGN_AND_COPY(LSingle)
+};
+
+//// Template End
 
 /**
  * @brief 获取时间戳

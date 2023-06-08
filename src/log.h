@@ -16,7 +16,6 @@
 #include <unordered_map>
 #include "../include/log.h"
 #include "../include/util.h"
-#include "util.h"
 
 namespace seeker {
 namespace log {
@@ -295,7 +294,7 @@ class Manager {
   Logger::Ptr default_logger_;
 };
 
-using Mgr = Single<Manager>;
+using Mgr = util::Single<Manager>;
 
 /**
  * @brief 日志接口实现层
