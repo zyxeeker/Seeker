@@ -98,9 +98,9 @@ class FormattingMgr {
      * @param ss 流
      * @param e 事件
      */
-    virtual void ToStream(std::stringstream &ss, 
-                          std::string& logger_name, 
-                          Event::Ptr e) = 0;
+    virtual void ToStream(std::ostream &os, 
+                          const std::string& logger_name, 
+                          Event::Ptr event_ptr) = 0;
   };
   /**
    * @brief 添加子项
@@ -158,7 +158,9 @@ class OutputMgr {
      * @brief 输出接口
      * @param buf 传入的字符串数据
      */
-    virtual void Output(const std::string &buf) = 0;
+    virtual void Output(const std::string& logger_name,
+                        const std::vector<FormattingMgr::IItem::Ptr>& items,
+                        const Event::Ptr event_ptr) = 0;
   };
   /**
    * @brief 添加输出
@@ -205,7 +207,7 @@ class Logger {
    * @brief 输出
    * @param e 日志事件
    */
-  void Output(Event::Ptr e);
+  void Output(Event::Ptr event_ptr);
   /**
    * @brief 添加输出
    */
@@ -331,15 +333,32 @@ class Manager {
   Logger::Ptr default_logger() {
     return default_logger_;
   }
- private:
   /**
-  * @brief 日志器字典
-  */
-  std::unordered_map<std::string, Logger::Ptr> loggers_;
+   * @brief 获取设置的最小输出等级
+   */
+  Level::level min_level() const {
+    return min_level_;
+  }
+  /**
+   * @brief 设置最小输出等级
+   * @param level 
+   */
+  void set_min_level(Level::level level) {
+    min_level_ = level;
+  }
+ private:
   /**
    * @brief 默认日志器
    */
   Logger::Ptr default_logger_;
+  /**
+   * @brief 最低输出等级
+   */
+  Level::level min_level_;
+  /**
+  * @brief 日志器字典
+  */
+  std::unordered_map<std::string, Logger::Ptr> loggers_;
   /**
    * @brief 从配置文件解析得到的日志器参数
    */

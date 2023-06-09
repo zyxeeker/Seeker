@@ -46,6 +46,11 @@ struct Level {
 };
 
 /**
+ * @brief 设置全局最低输出等级
+ */
+void SetMinLogLevel(Level::level level);
+
+/**
  * @brief 日志接口
  */
 class Log : public std::ostringstream {

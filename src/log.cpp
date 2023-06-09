@@ -47,15 +47,19 @@ Level::level Level::FromString(std::string l_str) {
   return UNKNOWN;
 }
 
+void SetMinLogLevel(Level::level level) {
+  Mgr::GetInstance().set_min_level(level);
+}
+
 //// Formatter Item Begin
 
 class LoggerNameItem : public FormattingMgr::IItem {
  public:
   LoggerNameItem(std::string buf) {}
-  void ToStream(std::stringstream &ss, 
-                std::string& logger_name, 
-                Event::Ptr e) override {
-    ss << logger_name;
+  void ToStream(std::ostream &os, 
+                const std::string& logger_name, 
+                Event::Ptr event_ptr) override {
+    os << logger_name;
   }
 };
 
@@ -65,10 +69,10 @@ class LoggerNameItem : public FormattingMgr::IItem {
 class LevelItem : public FormattingMgr::IItem {
  public:
   LevelItem(std::string buf) {}
-  void ToStream(std::stringstream &ss, 
-                std::string& logger_name, 
-                Event::Ptr e) override {
-    ss << Level::ToString(e->level_);
+  void ToStream(std::ostream &os, 
+                const std::string& logger_name, 
+                Event::Ptr event_ptr) override {
+    os << Level::ToString(event_ptr->level_);
   }
 };
 
@@ -78,10 +82,10 @@ class LevelItem : public FormattingMgr::IItem {
 class FileNameItem : public FormattingMgr::IItem {
  public:
   FileNameItem(std::string buf) {}
-  void ToStream(std::stringstream &ss, 
-                std::string& logger_name, 
-                Event::Ptr e) override {
-    ss << e->file_name_;
+  void ToStream(std::ostream &os, 
+                const std::string& logger_name, 
+                Event::Ptr event_ptr) override {
+    os << event_ptr->file_name_;
   }
 };
 
@@ -91,10 +95,10 @@ class FileNameItem : public FormattingMgr::IItem {
 class FunctionItem : public FormattingMgr::IItem {
  public:
   FunctionItem(std::string buf) {}
-  void ToStream(std::stringstream &ss, 
-                std::string& logger_name, 
-                Event::Ptr e) override {
-    ss << e->function_name_;
+  void ToStream(std::ostream &os, 
+                const std::string& logger_name, 
+                Event::Ptr event_ptr) override {
+    os << event_ptr->function_name_;
   }
 };
 
@@ -104,10 +108,10 @@ class FunctionItem : public FormattingMgr::IItem {
 class LineItem : public FormattingMgr::IItem {
  public:
   LineItem(std::string buf) {}
-  void ToStream(std::stringstream &ss, 
-                std::string& logger_name, 
-                Event::Ptr e) override {
-    ss << e->line_num_;
+  void ToStream(std::ostream &os, 
+                const std::string& logger_name, 
+                Event::Ptr event_ptr) override {
+    os << event_ptr->line_num_;
   }
 };
 
@@ -118,14 +122,14 @@ class TimeItem : public FormattingMgr::IItem {
  public:
   TimeItem(std::string buf)
     : format_(buf) {}
-  void ToStream(std::stringstream &ss, 
-                std::string& logger_name, 
-                Event::Ptr e) override {
+  void ToStream(std::ostream &os, 
+                const std::string& logger_name, 
+                Event::Ptr event_ptr) override {
   // 当没有格式时默认输出时间戳
   if (format_.length() == 0)
-    ss << e->timestamp_;
+    os << event_ptr->timestamp_;
   else
-    util::TimeStampToString(format_, e->timestamp_);
+    util::TimeStampToString(format_, event_ptr->timestamp_);
   }
  private:
   std::string format_;
@@ -137,10 +141,10 @@ class TimeItem : public FormattingMgr::IItem {
 class ThreadIdItem : public FormattingMgr::IItem {
  public:
   ThreadIdItem(std::string buf) {}
-  void ToStream(std::stringstream &ss, 
-                std::string& logger_name, 
-                Event::Ptr e) override {
-    ss << e->thread_id_;
+  void ToStream(std::ostream &os, 
+                const std::string& logger_name, 
+                Event::Ptr event_ptr) override {
+    os << event_ptr->thread_id_;
   }
 };
 
@@ -150,10 +154,10 @@ class ThreadIdItem : public FormattingMgr::IItem {
 class ThreadNameItem : public FormattingMgr::IItem {
  public:
   ThreadNameItem(std::string buf) {}
-  void ToStream(std::stringstream &ss, 
-                std::string& logger_name, 
-                Event::Ptr e) override {
-    ss << e->thread_name_;
+  void ToStream(std::ostream &os, 
+                const std::string& logger_name, 
+                Event::Ptr event_ptr) override {
+    os << event_ptr->thread_name_;
   }
 };
 
@@ -163,10 +167,10 @@ class ThreadNameItem : public FormattingMgr::IItem {
 class ContentItem : public FormattingMgr::IItem {
  public:
   ContentItem(std::string buf) {}
-  void ToStream(std::stringstream &ss, 
-                std::string& logger_name, 
-                Event::Ptr e) override {
-    ss << e->content_.str();
+  void ToStream(std::ostream &os, 
+                const std::string& logger_name, 
+                Event::Ptr event_ptr) override {
+    os << event_ptr->content_.str();
   }
 };
 
@@ -177,10 +181,10 @@ class StringItem : public FormattingMgr::IItem {
  public:
   StringItem(std::string buf) 
     : buff_(std::move(buf)) {}
-  void ToStream(std::stringstream &ss, 
-                std::string& logger_name, 
-                Event::Ptr e) override {
-    ss << buff_;
+  void ToStream(std::ostream &os, 
+                const std::string& logger_name, 
+                Event::Ptr event_ptr) override {
+    os << buff_;
   }
  private:
   std::string buff_;
@@ -294,8 +298,13 @@ class FileOutput : public OutputMgr::IOutput {
       stream_.close();
     return Open();
   }
-  void Output(const std::string &buf) override {
-    stream_ << buf << std::endl;
+  void Output(const std::string& logger_name,
+              const std::vector<FormattingMgr::IItem::Ptr>& items,
+              const Event::Ptr event_ptr) override {
+    for (auto &i : items) {
+      i->ToStream(stream_, logger_name, event_ptr);
+    }
+    stream_ << std::endl;
   }
   /**
    * @brief 返回文件名
@@ -313,8 +322,13 @@ class FileOutput : public OutputMgr::IOutput {
  */
 class StdOutput : public OutputMgr::IOutput {
  public:
-  void Output(const std::string &buf) override {
-    std::cout << buf << std::endl;
+  void Output(const std::string& logger_name,
+              const std::vector<FormattingMgr::IItem::Ptr>& items,
+              const Event::Ptr event_ptr) override {
+    for (auto &i : items) {
+      i->ToStream(std::cout, logger_name, event_ptr);
+    }
+    std::cout << std::endl;
   }
 };
 //// Output End
@@ -329,18 +343,18 @@ Logger::Logger(std::string name,
   formatting_mgr_->Init();
 }
 
-void Logger::Output(Event::Ptr e) {
-  std::stringstream ss;
-  for (auto &i : formatting_mgr_->item_arr()) {
-    i->ToStream(ss, name_, e);
-  }
+void Logger::Output(Event::Ptr event_ptr) {
+  // 如果小于设置的最小等级则不进行输出
+  if (Mgr::GetInstance().min_level() > level_)
+    return;
   for (auto &i : output_mgr_->output_arr()) {
-    i->Output(ss.str());
+    i->Output(name_, formatting_mgr_->item_arr(), event_ptr);
   }
 }
 
 //// Manager Begin
-Manager::Manager() {
+Manager::Manager()
+    : min_level_(Level::UNKNOWN) {
   // 默认日志器构建失败抛出异常
   try {
     default_logger_ = Logger::Ptr(
