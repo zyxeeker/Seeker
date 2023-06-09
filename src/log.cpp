@@ -10,6 +10,7 @@
 #include <fstream>
 #include <map>
 #include <functional>
+#include "cfg.h"
 #include "exception.h"
 
 namespace seeker {
@@ -318,17 +319,13 @@ class StdOutput : public OutputMgr::IOutput {
 };
 //// Output End
 
-Logger::Logger(std::string name, std::string format_str) 
+Logger::Logger(std::string name, 
+               Level::level level, 
+               std::string format_str) 
     : name_(std::move(name)),
+      level_(level),
       formatting_mgr_(new FormattingMgr(std::move(format_str))),
       output_mgr_(new OutputMgr()) {
-  // DEBUG ONLY
-#if 1
-  AddOutput(OutputMgr::IOutput::Ptr(new StdOutput()));
-  auto a = new FileOutput("test.log");
-  a->Open();
-  AddOutput(OutputMgr::IOutput::Ptr(a));
-#endif
   formatting_mgr_->Init();
 }
 
@@ -342,15 +339,69 @@ void Logger::Output(Event::Ptr e) {
   }
 }
 
+//// Manager Begin
 Manager::Manager() {
   // 默认日志器构建失败抛出异常
   try {
     default_logger_ = Logger::Ptr(
         new Logger(DEFAULT_LOGGER_NAME, 
-                DEFAULT_FORMATTER_PATTERN));
+                   Level::UNKNOWN,
+                   DEFAULT_FORMATTER_PATTERN));
+    auto std_output_ptr = std::make_shared<StdOutput>();
+    default_logger_->AddOutput(std_output_ptr);
   } catch (...) {
     throw exception::LoggerInitError(default_logger_->name());
   }
+  // 增加监听, 未来如果进行配置刷新可以用上
+  auto logger_init_func = 
+      [=](cfg::Var<std::vector<LoggerJsonObj> >::ValuePtr old_, 
+      cfg::Var<std::vector<LoggerJsonObj> >::ValuePtr new_) {
+          // std::cout << "---- LOGGER ----" << std::endl;
+          for (auto &i : *(new_)) {
+            // 如果日志名为空则跳过
+            if (i.name_.length() == 0)
+              continue;
+            
+            auto logger_ptr = std::make_shared<Logger>(i.name_, 
+                                                        Level::FromString(i.level_),
+                                                        i.formatting_str_);
+            
+            // std::cout << "LName: " << i.name_ << std::endl
+            //           << "LLevel: " << i.level_ << std::endl
+            //           << "LFStr: " << i.formatting_str_ << std::endl;
+            // 添加输出
+            for (auto &o : i.output_arr_) {
+              OutputMgr::IOutput::Ptr output_ptr = nullptr;
+              switch (o.type_) {
+                case OUTPUT_FILE: {
+                  auto p = std::make_shared<FileOutput>(o.path_);
+                  if (!p->Open())
+                    continue;
+                  output_ptr = p;
+                  break;
+                }
+                case OUTPUT_STD:
+                  output_ptr = std::make_shared<StdOutput>();
+                  break;
+                default:
+                  break;
+              }
+              if (output_ptr)
+                logger_ptr->AddOutput(output_ptr);
+              // std::cout << "---- OUTPUTER ----" << std::endl;
+              // std::cout << "OType: " << o.type_ << std::endl
+              //           << "OPath: " << o.path_ << std::endl;
+              // std::cout << "---- -------- ----" << std::endl;
+            }
+
+            AddLogger(logger_ptr);
+          }
+        };
+  cfg_arr_.AddWatcher(1, logger_init_func);
+  // 查询
+  auto res = cfg::Mgr::GetInstance().Query<std::vector<LoggerJsonObj> >("logger"); 
+  // 设置值并触发更新
+  cfg_arr_.set_value_ptr(res.value_ptr());
 }
 
 Logger::Ptr Manager::GetLogger(std::string key) {
@@ -373,6 +424,7 @@ void Manager::AddLogger(Logger::Ptr l) {
 void Manager::DeleteLogger(std::string logger_name) {
   loggers_.erase(logger_name);
 }
+//// Manager End
 
 //// Log::impl Begin
 Log::Impl::Impl(Level::level level,

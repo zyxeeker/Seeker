@@ -2,5 +2,35 @@
   "arr": [1,2,3,4,[5,6]],
   "int": 150000,
   "float": 2.2,
-  "bool": false
+  "bool": false,
+  "logger": [
+    {
+      "name": "system",
+      "level": "DEBUG",
+      "format":"%d [%P](%r){%F:%L} %m",
+      "output": [
+        {
+          "type": "std"
+        },
+        {
+          "type": "file",
+          "path": "system_log.log"
+        }
+      ]
+    },
+    {
+      "name": "cfg",
+      "level": "INFO",
+      "format":"%d [%P](%r) %m",
+      "output": [
+        {
+          "type": "std"
+        },
+        {
+          "type": "file",
+          "path": "cfg_log.log"
+        }
+      ]
+    }
+  ]
 }

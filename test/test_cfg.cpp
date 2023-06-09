@@ -6,8 +6,6 @@
 #include "cfg.h"
 
 int main() {
-  seeker::cfg::Mgr::GetInstance().Init();
-
   // Array
   auto res = seeker::cfg::Mgr::GetInstance().Query<std::vector<int> >("arr");
   std::cout << res.GetValue().size() << std::endl;

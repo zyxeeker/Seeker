@@ -14,8 +14,6 @@
 #include <vector>
 #include <unordered_map>
 #include <memory>
-#include <sstream>
-#include <fstream>
 #include <iostream>
 #include <functional>
 #include <type_traits>
@@ -301,10 +299,6 @@ class Var {
 class Manager {
  public:
   /**
-   * @brief 初始化 
-   */
-  bool Init();
-  /**
    * @brief 查询并返回需要的元素
    * @tparam ValueType 元素数据类型
    * @param key 配置文件中的key值
@@ -313,18 +307,21 @@ class Manager {
   template<typename ValueType>
   Var<ValueType> Query(std::string key);
  private:
-  std::ifstream file_stream_;
-  nlohmann::json data_;
+  /**
+   * @brief 获取配置文件json数据
+   */
+  const nlohmann::json& GetJsonData() const;
 };
 
 using Mgr = util::Single<Manager>;
 
 template<typename ValueType>
 Var<ValueType> Manager::Query(std::string key) {
-  if (data_.is_null())
+  auto &data = GetJsonData();
+  if (data.is_null())
     return Var<ValueType>(ValueType{});
-  auto res = data_.find(key);
-  if (res == data_.end())
+  auto res = data.find(key);
+  if (res == data.end())
     return Var<ValueType>(ValueType{});
   return Var<ValueType>(res.value());
 }

@@ -15,6 +15,7 @@
 #include <sstream>
 #include <unordered_map>
 #include "../include/log.h"
+#include "../include/cfg.h"
 #include "../include/util.h"
 
 namespace seeker {
@@ -132,6 +133,15 @@ class FormattingMgr {
 };
 
 /**
+ * @brief 输出类型
+ */
+enum OUTPUT_TYPE {
+  OUTPUT_STD = 0,
+  OUTPUT_FILE,
+  OUTPUT_NUM
+};
+
+/**
  * @brief 日志输出管理类
  */
 class OutputMgr {
@@ -184,10 +194,13 @@ class Logger {
   /**
    * @brief 构建日志器并对格式进行解析
    * @param name 日志名字
+   * @param level 日志输出等级
    * @param format_str 日志格式字符串
    * @throw 解析不成功抛出异常exception::ParseInvalidKey
    */
-  Logger(std::string name, std::string format_str);
+  Logger(std::string name, 
+         Level::level level, 
+         std::string format_str);
   /**
    * @brief 输出
    * @param e 日志事件
@@ -212,6 +225,12 @@ class Logger {
     return name_;
   }
   /**
+   * @brief 获取输出等级
+   */
+  Level::level level() const {
+    return level_;
+  }
+  /**
    * @brief 获取格式管理器
    * @return FormattingMgr::Ptr 管理器指针
    */
@@ -224,6 +243,13 @@ class Logger {
    */
   OutputMgr::Ptr output_mgr() const {
     return output_mgr_;
+  }
+  /**
+   * @brief 设置输出等级
+   * @param level 
+   */
+  void set_level(Level::level level) {
+    level_ = level;
   }
   /**
    * @brief 设置格式管理器
@@ -241,9 +267,13 @@ class Logger {
   }
  private:
   /**
-    * @brief 日志名字
+    * @brief 日志器名字
     */
   std::string name_;
+  /**
+   * @brief 输出等级
+   */
+  Level::level level_;
   /**
    * @brief 日志格式管理器
    */
@@ -252,6 +282,24 @@ class Logger {
    * @brief 日志输出管理器
    */
   OutputMgr::Ptr output_mgr_;
+};
+
+/**
+ * @brief Logger输出对象(JSON)
+ */
+struct LoggerOutputerJsonObj {
+  OUTPUT_TYPE type_;
+  std::string path_;
+};
+
+/**
+ * @brief Logger对象(JSON)
+ */
+struct LoggerJsonObj {
+  std::string name_;
+  std::string level_;
+  std::string formatting_str_;
+  std::vector<LoggerOutputerJsonObj> output_arr_;
 };
 
 /**
@@ -292,6 +340,10 @@ class Manager {
    * @brief 默认日志器
    */
   Logger::Ptr default_logger_;
+  /**
+   * @brief 从配置文件解析得到的日志器参数
+   */
+  cfg::Var<std::vector<LoggerJsonObj> > cfg_arr_;
 };
 
 using Mgr = util::Single<Manager>;

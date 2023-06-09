@@ -6,4 +6,6 @@ int main() {
   seeker::log::Warn() << "TETEE";
   seeker::log::Error() << "TETEE";
   seeker::log::Fatal() << "TETEE";
+  seeker::log::Debug("system") << "system";
+  seeker::log::Debug("cfg") << "cfg";
 }
