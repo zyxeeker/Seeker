@@ -12,6 +12,7 @@
 #include <memory>
 #include <sstream>
 #include "util.h"
+#include "thread.h"
 
 namespace seeker {
 namespace log {
@@ -62,7 +63,8 @@ class Log : public std::ostringstream {
    * @param line_num 行号
    * @param timestamp 时间戳
    * @param thread_id 线程id
-   * @param logger_name 线程名
+   * @param thread_name 线程名
+   * @param logger_name 日志器名
    */
   Log(Level::level level,
       const char* file_name, 
@@ -70,6 +72,7 @@ class Log : public std::ostringstream {
       int line_num,
       uint64_t timestamp,
       int thread_id,
+      std::string thread_name,
       std::string logger_name);
   ~Log();
  private:
@@ -86,16 +89,12 @@ class Log : public std::ostringstream {
   const char* function_name = __builtin_FUNCTION(), \
   int line_num = __builtin_LINE(), \
   uint64_t timestamp = util::GetTimeStamp(), \
-  int thread_id = util::GetThreadId()
+  TID thread_id = th::GetThreadId(),\
+  std::string = th::GetThreadName()
 
 /**
  * @brief 日志Debug输出
  * @param logger_name 日志器名
- * @param file_name 文件名
- * @param function_name 函数名
- * @param line_num 行号
- * @param timestamp 时间戳
- * @param thread_id 线程Id
  * @return Log 日志接口
  */
 Log Debug(LOG_API_PARAM(""));
@@ -103,11 +102,6 @@ Log Debug(LOG_API_PARAM(""));
 /**
  * @brief 日志Info输出
  * @param logger_name 日志器名
- * @param file_name 文件名
- * @param function_name 函数名
- * @param line_num 行号
- * @param timestamp 时间戳
- * @param thread_id 线程Id
  * @return Log 日志接口
  */
 Log Info(LOG_API_PARAM(""));
@@ -115,11 +109,6 @@ Log Info(LOG_API_PARAM(""));
 /**
  * @brief 日志Warn输出
  * @param logger_name 日志器名
- * @param file_name 文件名
- * @param function_name 函数名
- * @param line_num 行号
- * @param timestamp 时间戳
- * @param thread_id 线程Id
  * @return Log 日志接口
  */
 Log Warn(LOG_API_PARAM(""));
@@ -127,11 +116,6 @@ Log Warn(LOG_API_PARAM(""));
 /**
  * @brief 日志Error输出
  * @param logger_name 日志器名
- * @param file_name 文件名
- * @param function_name 函数名
- * @param line_num 行号
- * @param timestamp 时间戳
- * @param thread_id 线程Id
  * @return Log 日志接口
  */
 Log Error(LOG_API_PARAM(""));
@@ -139,11 +123,6 @@ Log Error(LOG_API_PARAM(""));
 /**
  * @brief 日志Fatal输出
  * @param logger_name 日志器名
- * @param file_name 文件名
- * @param function_name 函数名
- * @param line_num 行号
- * @param timestamp 时间戳
- * @param thread_id 线程Id
  * @return Log 日志接口
  */
 Log Fatal(LOG_API_PARAM(""));

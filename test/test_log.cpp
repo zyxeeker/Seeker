@@ -1,7 +1,7 @@
 #include "log.h"
 
 int main() {
-  seeker::log::SetMinLogLevel(seeker::log::Level::DEBUG);
+  // seeker::log::SetMinLogLevel(seeker::log::Level::DEBUG);
 
   seeker::log::Debug() << "TETEE";
   seeker::log::Info() << "TETEE";

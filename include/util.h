@@ -132,14 +132,6 @@ static std::string TimeStampToString(const std::string &format, uint64_t time_st
   return std::string(buff);
 }
 
-/**
- * @brief 获取当前线程ID
- * @return TID 当前线程ID
- */
-static TID GetThreadId() {
-  return gettid();
-}
-
 } // util
 } // seeker
 

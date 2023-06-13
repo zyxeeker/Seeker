@@ -447,15 +447,16 @@ Log::Impl::Impl(Level::level level,
                     int line_num,
                     uint64_t timestamp,
                     TID thread_id,
+                    std::string thread_name,
                     std::string logger_name)
     : event_(new Event {
-        .level_ = level,
-        .file_name_ = file_name,
-        .function_name_ = function_name,
-        .line_num_ = line_num,
-        .timestamp_ = timestamp,
-        .thread_id_ = thread_id,
-        .thread_name_ = "",
+        .level_ = std::move(level),
+        .file_name_ = std::move(file_name),
+        .function_name_ = std::move(function_name),
+        .line_num_ = std::move(line_num),
+        .timestamp_ = std::move(timestamp),
+        .thread_id_ = std::move(thread_id),
+        .thread_name_ = std::move(thread_name),
       }),
       logger_(Mgr::GetInstance().GetLogger(logger_name)) {}
 
@@ -471,6 +472,7 @@ Log::Log(Level::level level,
                  int line_num,
                  uint64_t timestamp,
                  int thread_id,
+                 std::string thread_name,
                  std::string logger_name) 
     : impl_(new Impl(level,
                      file_name,
@@ -478,6 +480,7 @@ Log::Log(Level::level level,
                      line_num,
                      timestamp,
                      thread_id,
+                     thread_name,
                      logger_name)) {}
 
 Log::~Log() {
@@ -494,13 +497,15 @@ Log::~Log() {
               const char* function_name, \
               int line_num, \
               uint64_t timestamp, \
-              int thread_id) { \
+              int thread_id,\
+              std::string thread_name) { \
     return Log(Level, \
                std::move(file_name), \
                std::move(function_name), \
                std::move(line_num), \
                std::move(timestamp), \
                std::move(thread_id), \
+               std::move(thread_name), \
                std::move(logger_name)); \
   }
 
