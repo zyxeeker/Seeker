@@ -11,7 +11,6 @@
 #include <map>
 #include <functional>
 #include "cfg.h"
-#include "thread.h"
 #include "exception.h"
 
 namespace seeker {
@@ -275,6 +274,21 @@ void FormattingMgr::Init() {
 }
 
 //// Output Begin
+void OutputMgr::AddOutput(IOutput::Ptr output) {
+  th::RWMutexWRGuard sg(rw_mutex_);
+  output_arr_.push_back(output);
+}
+
+void OutputMgr::ClearOutputArr() {
+  th::RWMutexWRGuard sg(rw_mutex_);
+  output_arr_.clear();
+}
+
+const std::vector<OutputMgr::IOutput::Ptr>& OutputMgr::output_arr() {
+  th::RWMutexRDGuard sg(rw_mutex_);
+  return output_arr_;
+}
+
 /**
  * @brief 文件输出类
  */
@@ -330,6 +344,7 @@ class StdOutput : public OutputMgr::IOutput {
   void Output(const std::string& logger_name,
               const std::vector<FormattingMgr::IItem::Ptr>& items,
               const Event::Ptr event_ptr) override {
+    th::MutexGuard sg(Mgr::GetInstance().stdout_mutex());
     for (auto &i : items) {
       i->ToStream(std::cout, logger_name, event_ptr);
     }
@@ -352,9 +367,20 @@ void Logger::Output(Event::Ptr event_ptr) {
   // 如果小于设置的最小等级则不进行输出
   if (Mgr::GetInstance().min_level() > level_)
     return;
+  th::MutexGuard sg(mutex_);
   for (auto &i : output_mgr_->output_arr()) {
     i->Output(name_, formatting_mgr_->item_arr(), event_ptr);
   }
+}
+
+void Logger::set_formatting_mgr(FormattingMgr::Ptr formatting_mgr) {
+  th::MutexGuard sg(mutex_);
+  formatting_mgr_ = formatting_mgr;
+}
+
+void Logger::set_output_mgr(OutputMgr::Ptr output_mgr) {
+  th::MutexGuard sg(mutex_);
+  output_mgr_ = output_mgr;
 }
 
 //// Manager Begin
@@ -424,6 +450,7 @@ Manager::Manager()
 }
 
 Logger::Ptr Manager::GetLogger(std::string key) {
+  th::RWMutexRDGuard sg(loggers_op_mutex_);
   auto res = loggers_.find(key);
   // 若不存在返回管理器中默认日志器
   return res == loggers_.end() ? default_logger_ : res->second;
@@ -432,6 +459,7 @@ Logger::Ptr Manager::GetLogger(std::string key) {
 void Manager::AddLogger(Logger::Ptr l) {
   auto res = loggers_.find(l->name());
   // 存储的对象中未有重名的日志器时进行添加, 反之则替换格式和输出管理器
+  th::RWMutexWRGuard sg(loggers_op_mutex_);
   if (res == loggers_.end())
     loggers_[l->name()] = l;
   else {
@@ -441,6 +469,7 @@ void Manager::AddLogger(Logger::Ptr l) {
 }
 
 void Manager::DeleteLogger(std::string logger_name) {
+  th::RWMutexWRGuard sg(loggers_op_mutex_);
   loggers_.erase(logger_name);
 }
 //// Manager End

@@ -148,6 +148,93 @@ int Mutex::Unlock() {
 }
 //// Mutex End
 
+//// SpinMutex Begin
+SpinMutex::Impl::Impl() {
+  int res = pthread_spin_init(&mutex_, 0);
+  if (res)
+    throw RunTimeError::Create(MODULE_NAME, 
+                               "pthread_spin_init fail to execute", 
+                               res);
+}
+
+SpinMutex::Impl::~Impl() {
+  if (!destoryed_) {
+    try {
+      Destory();
+    } catch (seeker::RunTimeError ex) {
+      log::Warn("system", MODULE_NAME, "~SpinMutex()", 0) << ex.what();
+    }
+  }
+}
+
+void SpinMutex::Impl::Destory() {
+  int res = pthread_spin_destroy(&mutex_);
+  if (res)
+    throw RunTimeError::Create(MODULE_NAME, 
+                               "pthread_spin_destroy fail to execute", 
+                               res);
+  destoryed_ = true; 
+}
+
+SpinMutex::SpinMutex()
+    : impl_(std::make_unique<Impl>()) {}
+
+SpinMutex::~SpinMutex() = default;
+
+int SpinMutex::Lock() {
+  return SYS_API_RES_CHECK(pthread_spin_lock(&(impl_->mutex_)));
+}
+
+int SpinMutex::Unlock() {
+  return SYS_API_RES_CHECK(pthread_spin_unlock(&(impl_->mutex_)));
+}
+//// SpinMutex End
+
+//// RWMutex Begin
+RWMutex::Impl::Impl()
+    : mutex_(PTHREAD_RWLOCK_INITIALIZER) {}
+
+RWMutex::Impl::~Impl() {
+  if (!destoryed_) {
+    try {
+      Destory();
+    } catch (seeker::RunTimeError ex) {
+      log::Warn("system", MODULE_NAME, "~RWMutex()", 0) << ex.what();
+    }
+  }
+}
+
+void RWMutex::Impl::Destory() {
+  int res = pthread_rwlock_destroy(&mutex_);
+  if (res)
+    throw RunTimeError::Create(MODULE_NAME, 
+                               "pthread_rwlock_destroy fail to execute", 
+                               res);
+  destoryed_ = true; 
+}
+
+RWMutex::RWMutex()
+    : impl_(std::make_unique<Impl>()) {}
+
+RWMutex::~RWMutex() = default;
+
+int RWMutex::RDLock() {
+  return SYS_API_RES_CHECK(pthread_rwlock_rdlock(&(impl_->mutex_)));
+}
+
+int RWMutex::WRLock() {
+  return SYS_API_RES_CHECK(pthread_rwlock_wrlock(&(impl_->mutex_)));
+}
+
+int RWMutex::Unlock() {
+  return SYS_API_RES_CHECK(pthread_rwlock_unlock(&(impl_->mutex_)));
+}
+
+void RWMutex::Destory() {
+  impl_->Destory();
+}
+//// RWMutex End
+
 //// Condition Begin
 Cond::Impl::Impl()
     : cond_(PTHREAD_COND_INITIALIZER) {}

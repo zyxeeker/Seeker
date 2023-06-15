@@ -17,6 +17,7 @@
 #include "../include/log.h"
 #include "../include/cfg.h"
 #include "../include/util.h"
+#include "thread.h"
 
 namespace seeker {
 namespace log {
@@ -165,26 +166,24 @@ class OutputMgr {
   /**
    * @brief 添加输出
    */
-  void AddOutput(IOutput::Ptr output) {
-    output_arr_.push_back(output);
-  }
+  void AddOutput(IOutput::Ptr output);
   /**
    * @brief 清空输出数组
    */
-  void ClearOutputArr() {
-    output_arr_.clear();
-  }
+  void ClearOutputArr();
   /**
    * @brief 获取输出数组
    */
-  const std::vector<IOutput::Ptr>& output_arr() const {
-    return output_arr_;
-  }
+  const std::vector<IOutput::Ptr>& output_arr();
  private:
   /**
    * @brief 输出数组
    */
   std::vector<IOutput::Ptr> output_arr_;
+  /**
+   * @brief 数组操作读写锁
+   */
+  th::RWMutex rw_mutex_;
 };
 
 /**
@@ -257,16 +256,12 @@ class Logger {
    * @brief 设置格式管理器
    * @param formatting_mgr 管理器指针
    */
-  void set_formatting_mgr(FormattingMgr::Ptr formatting_mgr) {
-    formatting_mgr_ = formatting_mgr;
-  }
+  void set_formatting_mgr(FormattingMgr::Ptr formatting_mgr);
   /**
    * @brief 设置输出管理器
    * @param output_mgr 管理器指针
    */
-  void set_output_mgr(OutputMgr::Ptr output_mgr) {
-    output_mgr_ = output_mgr;
-  }
+  void set_output_mgr(OutputMgr::Ptr output_mgr);
  private:
   /**
     * @brief 日志器名字
@@ -284,6 +279,8 @@ class Logger {
    * @brief 日志输出管理器
    */
   OutputMgr::Ptr output_mgr_;
+
+  th::Mutex mutex_;
 };
 
 /**
@@ -340,6 +337,13 @@ class Manager {
     return min_level_;
   }
   /**
+   * @brief 获取标准输出互斥锁
+   * @return th::Mutex& 
+   */
+  th::Mutex& stdout_mutex() {
+    return stdout_mutex_;
+  }
+  /**
    * @brief 设置最小输出等级
    * @param level 
    */
@@ -363,6 +367,14 @@ class Manager {
    * @brief 从配置文件解析得到的日志器参数
    */
   cfg::Var<std::vector<LoggerJsonObj> > cfg_arr_;
+  /**
+   * @brief 标准输出互斥锁
+   */
+  th::Mutex stdout_mutex_;
+  /**
+   * @brief 日志器字典操作读写锁
+   */
+  th::RWMutex loggers_op_mutex_;
 };
 
 using Mgr = util::Single<Manager>;

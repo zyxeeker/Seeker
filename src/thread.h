@@ -6,6 +6,9 @@
  * @date 2023-06-09
  */
 
+#ifndef _SEEKER_SRC_TH_H_
+#define _SEEKER_SRC_TH_H_
+
 #include <pthread.h>
 #include <semaphore.h>
 #include "../include/thread.h"
@@ -67,6 +70,36 @@ struct Mutex::Impl {
 };
 
 /**
+ * @brief 自旋锁中间实现
+ */
+struct SpinMutex::Impl {
+  Impl();
+  ~Impl();
+  void Destory();
+
+  /**
+   * @brief 判断是否已进行销毁
+   */
+  bool destoryed_ = false;
+  pthread_spinlock_t mutex_;
+};
+
+/**
+ * @brief 读写锁中间实现
+ */
+struct RWMutex::Impl {
+  Impl();
+  ~Impl();
+  void Destory();
+
+  /**
+   * @brief 判断是否已进行销毁
+   */
+  bool destoryed_ = false;
+  pthread_rwlock_t mutex_;
+};
+
+/**
  * @brief 条件变量中间实现
  */
 struct Cond::Impl {
@@ -98,3 +131,5 @@ struct Sem::Impl {
 
 } // th
 } // seeker
+
+#endif // _SEEKER_SRC_TH_H_

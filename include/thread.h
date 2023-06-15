@@ -75,7 +75,6 @@ class Mutex {
  public:
   /**
    * @brief 构造时进行初始化
-   * @throw seeker::RunTimeError
    */
   Mutex();
   /**
@@ -102,13 +101,133 @@ class Mutex {
 };
 
 /**
+ * @brief 自旋锁
+ */
+class SpinMutex {
+ public:
+  /**
+   * @brief 构造时进行初始化
+   * @throw seeker::RunTimeError
+   */
+  SpinMutex();
+  /**
+   * @brief 析构时触发销毁, 调用Destory()后析构不再触发销毁
+   */
+  ~SpinMutex();
+  /**
+   * @return int 成功返回0, 失败则返回错误值
+   */
+  int Lock();
+  /**
+   * @return int 成功返回0, 失败则返回错误值
+   */
+  int Unlock();
+  /**
+   * @brief 销毁
+   * @throw seeker::RunTimeError
+   */
+  void Destory();
+ private:
+  struct Impl;
+  std::shared_ptr<Impl> impl_;
+};
+
+/**
+ * @brief 读写锁
+ */
+class RWMutex {
+ public:
+  /**
+   * @brief 构造时进行初始化
+   */
+  RWMutex();
+  /**
+   * @brief 析构时触发销毁, 调用Destory()后析构不再触发销毁
+   */
+  ~RWMutex();
+  /**
+   * @return int 成功返回0, 失败则返回错误值
+   */
+  int RDLock();
+  /**
+   * @return int 成功返回0, 失败则返回错误值 
+   */
+  int WRLock();
+  /**
+   * @return int 成功返回0, 失败则返回错误值
+   */
+  int Unlock();
+  /**
+   * @brief 销毁
+   * @throw seeker::RunTimeError
+   */
+  void Destory();
+ private:
+  struct Impl;
+  std::shared_ptr<Impl> impl_;
+};
+
+/**
+ * @brief 用于自旋锁&互斥量自动释放锁
+ */
+template <class M>
+class ScopeGuard {
+ public:
+  ScopeGuard(M& mutex)
+    : mutex_(mutex) {
+      mutex_.Lock();
+    }
+  ~ScopeGuard() {
+    mutex_.Unlock();
+  }
+ private:
+  M& mutex_;
+};
+
+/**
+ * @brief 用于RWMutex自动释放读锁
+ */
+class RWMutexRDScopeGuard {
+ public:
+  RWMutexRDScopeGuard(RWMutex& mutex)
+    : mutex_(mutex) {
+      mutex_.RDLock();
+    }
+  ~RWMutexRDScopeGuard() {
+    mutex_.Unlock();
+  }
+ private:
+  RWMutex& mutex_;
+};
+
+/**
+ * @brief 用于RWMutex自动释放写锁
+ */
+class RWMutexWRScopeGuard {
+ public:
+  RWMutexWRScopeGuard(RWMutex& mutex)
+    : mutex_(mutex) {
+      mutex_.WRLock();
+    }
+  ~RWMutexWRScopeGuard() {
+    mutex_.Unlock();
+  }
+ private:
+  RWMutex& mutex_;
+};
+
+using MutexGuard = ScopeGuard<Mutex>;
+using SpinMutexGuard = ScopeGuard<SpinMutex>;
+using RWMutexRDGuard = RWMutexRDScopeGuard;
+using RWMutexWRGuard = RWMutexWRScopeGuard;
+
+/**
  * @brief 条件变量(以默认值创建)
  */
 class Cond {
  public:
   /**
    * @brief 构造时自动创建
-   * @throw seeker::RunTimeError
    */
   Cond();
   /**
@@ -167,22 +286,6 @@ class Sem {
  private:
   struct Impl;
   std::unique_ptr<Impl> impl_;
-};
-
-/**
- * @brief SG
- */
-class ScopeGuard {
- public:
-  ScopeGuard(Mutex& mutex)
-    : mutex_(mutex) {
-      mutex_.Lock();
-    }
-  ~ScopeGuard() {
-    mutex_.Unlock();
-  }
- private:
-  Mutex& mutex_;
 };
 
 } // th
