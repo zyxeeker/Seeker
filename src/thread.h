@@ -9,10 +9,12 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include "../include/thread.h"
+#include "../include/exception.h"
+
+#define MODULE_NAME "seeker::th"
 
 namespace seeker {
 namespace th {
-
 /**
  * @brief 线程中间实现
  */
@@ -20,6 +22,8 @@ struct Thread::Impl {
   Impl(std::function<void()> callback, 
        const std::string name);
   ~Impl();
+  void Detach();
+  
   /**
    * @brief 线程Id
    */
@@ -36,6 +40,10 @@ struct Thread::Impl {
    * @brief 线程执行的回调函数
    */
   std::function<void()> callback_;
+  /**
+   * @brief 判断是否已经进行过detach
+   */
+  bool detached_ = false;
  private:
   /**
   * @brief 线程运行函数
@@ -49,7 +57,12 @@ struct Thread::Impl {
 struct Mutex::Impl {
   Impl();
   ~Impl();
+  void Destory();
 
+  /**
+   * @brief 判断是否已进行销毁
+   */
+  bool destoryed_ = false;
   pthread_mutex_t mutex_;
 };
 
@@ -59,7 +72,12 @@ struct Mutex::Impl {
 struct Cond::Impl {
   Impl();
   ~Impl();
+  void Destory();
 
+  /**
+   * @brief 判断是否已进行销毁
+   */
+  bool destoryed_ = false;
   pthread_cond_t cond_;
 };
 
@@ -69,7 +87,12 @@ struct Cond::Impl {
 struct Sem::Impl {
   Impl(uint32_t count);
   ~Impl();
+  void Destory();
 
+  /**
+   * @brief 判断是否已进行销毁
+   */
+  bool destoryed_ = false;
   sem_t sem_;
 };
 

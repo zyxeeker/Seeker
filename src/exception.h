@@ -10,6 +10,7 @@
 #define _SEEKER_SRC_EXCEPTION_H_
 
 #include <exception>
+#include "../include/exception.h"
 
 namespace seeker {
 namespace exception {

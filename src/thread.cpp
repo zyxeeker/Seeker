@@ -8,6 +8,7 @@
 
 #include "thread.h"
 #include <unistd.h>
+#include "log.h"
 
 #define DEFAULT_THREAD_NAME    "UNKNOWN"
 #define SYS_API_RES_CHECK(api) \
@@ -26,16 +27,31 @@ Thread::Impl::Impl(std::function<void()> callback,
                    const std::string name)
     : callback_(callback),
       name_(name.length() ? name : DEFAULT_THREAD_NAME) {
-  if (pthread_create(&thread_, nullptr, Impl::Run, this)) {
-    // TODO: throw exception
-  }
+  int res = pthread_create(&thread_, nullptr, Impl::Run, this);
+  if (res)
+    throw RunTimeError::Create(MODULE_NAME, 
+                               "\"" + name_ + "\" thread fail to created", 
+                               res);
 }
 
 Thread::Impl::~Impl() {
-  if (thread_) {
-    if (pthread_detach(thread_)) {
-      // TODO: throw exception
+  if (!detached_) {
+    try {
+      Detach();
+    } catch (seeker::RunTimeError ex) {
+      log::Warn("system", MODULE_NAME, "~Thread()", 0) << ex.what();
     }
+  }
+}
+
+void Thread::Impl::Detach() {
+  if (thread_) {
+    int res = pthread_detach(thread_);
+    if (res)
+      throw RunTimeError::Create(MODULE_NAME, 
+                                 "\"" + name_ + "\" thread fail to detach", 
+                                 res);
+    detached_ = true;
   }
 }
 
@@ -55,15 +71,23 @@ void* Thread::Impl::Run(void* arg) {
 
 Thread::Thread(std::function<void()> callback, 
                const std::string name)
-    : impl_(std::make_shared<Impl>(callback, name)) {}
+    : impl_(std::make_unique<Impl>(callback, name)) {}
 
 Thread::~Thread() = default;
 
 void Thread::Join() {
   if (impl_->thread_) {
-    pthread_join(impl_->thread_, nullptr);
+    int res = pthread_join(impl_->thread_, nullptr);
+    if (res)
+      throw RunTimeError::Create(MODULE_NAME, 
+                                 "\"" + impl_->name_ + "\" thread fail to join", 
+                                 res);
     impl_->thread_ = 0;
   }
+}
+
+void Thread::Detach() {
+  impl_->Detach();
 }
 
 TID Thread::id() const {
@@ -86,14 +110,28 @@ TID GetThreadId() {
   return kThreadImpl ? kThreadImpl->id_ : gettid();
 }
 //// Thread End
+
 //// Mutex Begin
 Mutex::Impl::Impl()
     : mutex_(PTHREAD_MUTEX_INITIALIZER) {}
 
 Mutex::Impl::~Impl() {
-  if (pthread_mutex_destroy(&mutex_)) {
-    // TODO: throw exception
+  if (!destoryed_) {
+    try {
+      Destory();
+    } catch (seeker::RunTimeError ex) {
+      log::Warn("system", MODULE_NAME, "~Mutex()", 0) << ex.what();
+    }
   }
+}
+
+void Mutex::Impl::Destory() {
+  int res = pthread_mutex_destroy(&mutex_);
+  if (res)
+    throw RunTimeError::Create(MODULE_NAME, 
+                               "pthread_mutex_destroy fail to execute", 
+                               res);
+  destoryed_ = true; 
 }
 
 Mutex::Mutex()
@@ -109,14 +147,28 @@ int Mutex::Unlock() {
   return SYS_API_RES_CHECK(pthread_mutex_unlock(&(impl_->mutex_)));
 }
 //// Mutex End
+
 //// Condition Begin
 Cond::Impl::Impl()
     : cond_(PTHREAD_COND_INITIALIZER) {}
 
 Cond::Impl::~Impl() {
-  if (!pthread_cond_destroy(&cond_)) {
-    // TODO: throw exception
+  if (!destoryed_) {
+    try {
+      Destory();
+    } catch (seeker::RunTimeError ex) {
+      log::Warn("system", MODULE_NAME, "~Cond()", 0) << ex.what();
+    }
   }
+}
+
+void Cond::Impl::Destory() {
+  int res = pthread_cond_destroy(&cond_);
+  if (res)
+    throw RunTimeError::Create(MODULE_NAME, 
+                               "pthread_cond_destroy fail to execute", 
+                               res);
+  destoryed_ = true;
 }
 
 Cond::Cond() 
@@ -136,18 +188,36 @@ int Cond::Signal() {
 int Cond::BroadCast() {
   return SYS_API_RES_CHECK(pthread_cond_broadcast(&(impl_->cond_)));
 }
+
+void Cond::Destory() {
+  impl_->Destory();
+}
 //// Condition End
+
 //// Semaphore Begin
 Sem::Impl::Impl(uint32_t count) {
-  if (sem_init(&sem_, 0, count)) {
-    // TODO: throw exception
-  }
+  if (sem_init(&sem_, 0, count))
+    throw RunTimeError::Create(MODULE_NAME, 
+                               "sem_init fail to execute", 
+                               errno);
 }
 
 Sem::Impl::~Impl() {
-  if (sem_destroy(&sem_)) {
-    // TODO: throw exception
+  if (!destoryed_) {
+    try {
+      Destory();
+    } catch(seeker::RunTimeError ex) {
+      log::Warn("system", MODULE_NAME, "~Sem()", 0) << ex.what();
+    }
   }
+}
+
+void Sem::Impl::Destory() {
+  if (sem_destroy(&sem_))
+    throw RunTimeError::Create(MODULE_NAME, 
+                               "sem_destroy fail to execute", 
+                               errno);
+  destoryed_ = true;
 }
 
 Sem::Sem(uint32_t count)
@@ -162,6 +232,11 @@ int Sem::Wait() {
 int Sem::Post() {
   return SYS_API_RES_CHECK(sem_post(&(impl_->sem_)));
 }
-//// Semaphore Begin
+
+void Sem::Destory() {
+  impl_->Destory();
+}
+
+//// Semaphore End
 } // th
 } // seeker

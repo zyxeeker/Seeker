@@ -378,8 +378,6 @@ class Log::Impl {
    * @param function_name 函数名
    * @param line_num 行号
    * @param timestamp 时间戳
-   * @param thread_id 线程id
-   * @param thread_name 线程名
    * @param logger_name 日志器名
    */
   Impl(Level::level level,
@@ -387,8 +385,6 @@ class Log::Impl {
        const char* function_name, 
        int line_num,
        uint64_t timestamp,
-       TID thread_id,
-       std::string thread_name,
        std::string logger_name = DEFAULT_LOGGER_NAME);       
   /**
    * @brief 日志接口实现层析构函数, 当析构触发时输出日志
