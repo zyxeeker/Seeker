@@ -46,14 +46,14 @@ class Thread {
    * @brief 返回完整线程名
    */
   std::string name() const;
-  /**
+  /** 
    * @brief 返回传入的函数指针
    */
   std::function<void()> callback() const;
  public:
   struct Impl;
  private:
-  std::shared_ptr<Impl> impl_;
+  std::unique_ptr<Impl> impl_;
 
   DO_NOT_ASSIGN_AND_COPY(Thread);
 };
@@ -96,7 +96,7 @@ class Mutex {
   void Destory();
  private:
   struct Impl;
-  std::shared_ptr<Impl> impl_;
+  std::unique_ptr<Impl> impl_;
   friend class Cond;
 };
 
@@ -129,7 +129,7 @@ class SpinMutex {
   void Destory();
  private:
   struct Impl;
-  std::shared_ptr<Impl> impl_;
+  std::unique_ptr<Impl> impl_;
 };
 
 /**
@@ -164,7 +164,7 @@ class RWMutex {
   void Destory();
  private:
   struct Impl;
-  std::shared_ptr<Impl> impl_;
+  std::unique_ptr<Impl> impl_;
 };
 
 /**

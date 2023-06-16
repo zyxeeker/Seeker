@@ -337,6 +337,10 @@ class FileOutput : public OutputMgr::IOutput {
 };
 
 /**
+ * @brief 全局标准输出互斥锁
+ */
+static th::Mutex kStdoutMutex;
+/**
  * @brief 控制台输出类
  */
 class StdOutput : public OutputMgr::IOutput {
@@ -344,7 +348,7 @@ class StdOutput : public OutputMgr::IOutput {
   void Output(const std::string& logger_name,
               const std::vector<FormattingMgr::IItem::Ptr>& items,
               const Event::Ptr event_ptr) override {
-    th::MutexGuard sg(Mgr::GetInstance().stdout_mutex());
+    th::MutexGuard sg(kStdoutMutex);
     for (auto &i : items) {
       i->ToStream(std::cout, logger_name, event_ptr);
     }

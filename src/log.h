@@ -279,7 +279,9 @@ class Logger {
    * @brief 日志输出管理器
    */
   OutputMgr::Ptr output_mgr_;
-
+  /**
+   * @brief 日志器操作互斥锁
+   */
   th::Mutex mutex_;
 };
 
@@ -337,13 +339,6 @@ class Manager {
     return min_level_;
   }
   /**
-   * @brief 获取标准输出互斥锁
-   * @return th::Mutex& 
-   */
-  th::Mutex& stdout_mutex() {
-    return stdout_mutex_;
-  }
-  /**
    * @brief 设置最小输出等级
    * @param level 
    */
@@ -367,10 +362,6 @@ class Manager {
    * @brief 从配置文件解析得到的日志器参数
    */
   cfg::Var<std::vector<LoggerJsonObj> > cfg_arr_;
-  /**
-   * @brief 标准输出互斥锁
-   */
-  th::Mutex stdout_mutex_;
   /**
    * @brief 日志器字典操作读写锁
    */
