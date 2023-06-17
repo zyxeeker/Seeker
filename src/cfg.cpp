@@ -44,7 +44,7 @@ END:
   return kManagerCfg.data_;
 }
 
-const nlohmann::json& Manager::GetJsonData() const {
+const nlohmann::json& Manager::GetJsonData() {
   return ManagerJsonData();
 }
 

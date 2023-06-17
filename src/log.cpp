@@ -446,7 +446,7 @@ Manager::Manager()
             AddLogger(logger_ptr);
           }
         };
-  cfg_arr_.AddWatcher(1, logger_init_func);
+  cfg_arr_.AddChangedEventCb(logger_init_func);
   // 查询
   auto res = cfg::Mgr::GetInstance().Query<std::vector<LoggerJsonObj> >("logger"); 
   // 设置值并触发更新

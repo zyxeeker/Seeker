@@ -19,6 +19,7 @@
 #include <type_traits>
 #include <nlohmann/json.hpp>
 #include "util.h"
+#include "thread.h"
 
 namespace seeker {
 namespace cfg {
@@ -181,7 +182,7 @@ template <typename ValueType>
 class Var {
  public:
   using ValuePtr = std::shared_ptr<ValueType>;
-  using WatcherFunc = std::function<void(ValuePtr, ValuePtr)>;
+  using ChangedEventCb = std::function<void(ValuePtr old_v, ValuePtr new_v)>;
   Var() : value_ptr_(new ValueType()) {}
   Var(nlohmann::json json_value)
     : value_ptr_(new ValueType(
@@ -191,95 +192,126 @@ class Var {
   /**
    * @brief 获取值
    */
-  ValueType GetValue() const {
+  ValueType GetValue() {
+    th::RWMutexRDGuard sg(mutex_);
     return *value_ptr_;
   }
   /**
    * @brief 序列化 
    */
   std::string ToString() {
+    th::RWMutexRDGuard sg(mutex_);
     return nlohmann::to_string(
               VarCast<ValueType, nlohmann::json>()(*value_ptr_));
   }
-  /**
-   * @brief 添加观察者回调函数
-   * @param key 回调函数key
-   * @param watcher 回调函数
-   * @return true 添加成功时返回
-   * @return false 添加失败时返回
-   */
-  bool AddWatcher(int key, WatcherFunc watcher) {
-    auto res = watcher_list_.insert({key, watcher});
-    if (!res.second)
-      std::cout << "the key" << key << "is obtained by other watcher,"
-                << "please remove first or use [] to cover it!" 
-                << std::endl;
+  ChangedEventCb GetChangedEventCb(int key) {
+    th::RWMutexRDGuard sg(mutex_);
+    auto res = changed_cb_list_.find(key);
+    if (res == changed_cb_list_.end()) {
+      return nullptr;
+    }
     return res.second;
   }
   /**
-   * @brief 删除指定key的观察者回调函数
-   * @param key 
+   * @brief 添加值改变事件回调函数, 内部自动累加key值
+   * @param var_changed_cb 回调函数
+   * @return int 返回存放回调函数对应的key
    */
-  void DeleteWatcher(int key) {
-    watcher_list_.erase(key);
+  int AddChangedEventCb(ChangedEventCb var_changed_cb) {
+    static int key = 0;
+    ++key;
+    th::RWMutexWRGuard sg(mutex_);
+    changed_cb_list_[key] = var_changed_cb;
+    return key;
   }
   /**
-   * @brief 同类型Var进行交换
+   * @brief 删除指定key的回调函数
+   * @param key 
+   */
+  void DeleteChangedEventCb(int key) {
+    th::RWMutexWRGuard sg(mutex_);
+    changed_cb_list_.erase(key);
+  }
+  /**
+   * @brief 清空回调函数列表
+   */
+  void ClearChangedEventCbList() {
+    th::RWMutexWRGuard sg(mutex_);
+    changed_cb_list_.clear();
+  }
+  /**
+   * @brief 同类型Var进行交换, 不会触发值改变事件
    * @param var 同类型Var
    */
-  void Swap(Var<ValueType> var) {
+  void Swap(Var<ValueType>& var) {
+    th::RWMutexWRGuard sg(mutex_);
     auto this_value_ptr = value_ptr_;
-    auto this_watcher_list = watcher_list_;
+    auto this_changed_cb_list = changed_cb_list_;
 
     set_value_ptr(var.value_ptr());
-    set_watcher_list(var.watcher_list());
+    set_changed_cb_list(var.changed_cb_list());
 
     var.set_value_ptr(std::move(this_value_ptr));
-    var.set_watcher_list(std::move(this_watcher_list));
+    var.set_changed_cb_list(std::move(this_changed_cb_list));
   }
   /**
-   * @brief 添加/覆盖指定key值的观察者回调函数
-   * @param key 
-   * @return WatcherFunc& 观察者回调函数
+   * @brief 赋值, 只将传入的Var中原本值覆盖当前的值并触发值改变事件, 
+   *        不会覆盖回调函数列表, 如需交换使用Swap
    */
-  WatcherFunc& operator [](int key) {
-    return watcher_list_[key];
-  }
   Var<ValueType>& operator =(const Var<ValueType>& var) {
-    Swap(var);
+    for (auto &i : changed_cb_list_) {
+      i.second(value_ptr_, var.value_ptr());
+    }
+    th::RWMutexWRGuard sg(mutex_);
+    set_value_ptr(var.value_ptr());
     return this;
   }
+  /**
+   * @brief 赋值, 传入ValueType类型并创建相应的指针进行存放并触发值改变事件
+   */
   Var<ValueType>& operator =(const ValueType& value) {
-    value_ptr_ = new ValueType(value);
+    auto value_ptr = new ValueType(value);
+    for (auto &i : changed_cb_list_) {
+      i.second(value_ptr_, value_ptr);
+    }
+    th::RWMutexWRGuard sg(mutex_);
+    value_ptr_ = value_ptr;
     return this;
   }
   /**
    * @brief 获取观察者回调函数列表
    */
-  const std::unordered_map<int, WatcherFunc>& watcher_list() const {
-    return watcher_list_;
+  const std::unordered_map<int, ChangedEventCb>& changed_cb_list() {
+    th::RWMutexRDGuard sg(mutex_);
+    return changed_cb_list_;
   }
   /**
    * @brief 设置观察者回调函数列表
-   * @param watcher_list 观察者回调函数列表
+   * @param changed_cb_list 观察者回调函数列表
    */
-  void set_watcher_list(std::unordered_map<int, WatcherFunc> watcher_list) {
-    watcher_list_ = std::move(watcher_list);
+  void set_changed_cb_list(std::unordered_map<int, ChangedEventCb> changed_cb_list) {
+    th::RWMutexWRGuard sg(mutex_);
+    changed_cb_list_ = std::move(changed_cb_list);
   }
   /**
    * @brief 获取数据指针
    */
-  ValuePtr value_ptr() const {
+  ValuePtr value_ptr() {
+    th::RWMutexRDGuard sg(mutex_);
     return value_ptr_;
   }
   /**
-   * @brief 设置数据指针
+   * @brief 设置数据指针并触发值改变事件
    */
   void set_value_ptr(ValuePtr value_ptr) {
-    // 当进行设置时调用所有的观察者函数
-    for (auto &i : watcher_list_) {
-      i.second(value_ptr_, value_ptr);
+    {
+      th::RWMutexRDGuard sg(mutex_);
+      // 遍历回调函数列表进行更新
+      for (auto &i : changed_cb_list_) {
+        i.second(value_ptr_, value_ptr);
+      }
     }
+    th::RWMutexWRGuard sg(mutex_);
     value_ptr_.swap(value_ptr);
   }
  private:
@@ -290,7 +322,11 @@ class Var {
   /**
    * @brief 观察者回调函数列表
    */
-  std::unordered_map<int, WatcherFunc> watcher_list_;
+  std::unordered_map<int, ChangedEventCb> changed_cb_list_;
+  /**
+   * @brief 数据读写锁
+   */
+  th::RWMutex mutex_;
 };
 
 /**
@@ -308,15 +344,24 @@ class Manager {
   Var<ValueType> Query(std::string key);
  private:
   /**
+   * @brief 数据互斥锁, 防止使用Query时还未初始化
+  */
+  static th::Mutex& GetMutex() {
+    static th::Mutex mutex_;
+    return mutex_;
+  }
+ private:
+  /**
    * @brief 获取配置文件json数据
    */
-  const nlohmann::json& GetJsonData() const;
+  const nlohmann::json& GetJsonData();
 };
 
 using Mgr = util::Single<Manager>;
 
 template<typename ValueType>
 Var<ValueType> Manager::Query(std::string key) {
+  th::MutexGuard sg(GetMutex());
   auto &data = GetJsonData();
   if (data.is_null())
     return Var<ValueType>(ValueType{});

@@ -14,8 +14,8 @@ int main() {
   }
   // INT
   seeker::cfg::Var<int> int_num;
-  int_num.AddWatcher(1, [=](seeker::cfg::Var<int>::ValuePtr old_value,
-                            seeker::cfg::Var<int>::ValuePtr new_value) {
+  int_num.AddChangedEventCb([=](seeker::cfg::Var<int>::ValuePtr old_value,
+                                seeker::cfg::Var<int>::ValuePtr new_value) {
     std::cout << "OLD:" << *(old_value) << std::endl;
     std::cout << "NEW:" << *(new_value) << std::endl;
   });
@@ -25,7 +25,7 @@ int main() {
     std::cout << "OLD#1:" << *(old_value) << std::endl;
     std::cout << "NEW#1:" << *(new_value) << std::endl;
   };
-  int_num[2] = cb;
+  int_num.AddChangedEventCb(cb);
   auto int_num_res = seeker::cfg::Mgr::GetInstance().Query<int>("int");
   int_num.set_value_ptr(int_num_res.value_ptr());
   std::cout << "INT VALUE: " << *(int_num.value_ptr()) << std::endl;

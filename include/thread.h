@@ -6,6 +6,9 @@
  * @date 2023-06-09
  */
 
+#ifndef __SEEKER_TH_H__
+#define __SEEKER_TH_H__
+
 #include <memory>
 #include <string>
 #include <functional>
@@ -290,3 +293,5 @@ class Sem {
 
 } // th
 } // seeker
+
+#endif // __SEEKER_TH_H__
