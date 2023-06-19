@@ -1,10 +1,12 @@
 #include "log.h"
 #include "thread.h"
+#include <iostream>
+#include <string>
 #include <vector>
 
 void Test1() {
   while(1) {
-    seeker::log::Debug() << "****************";
+    seeker::log::Debug("system") << "****************";
   }
 }
 
@@ -16,7 +18,9 @@ void Test2() {
 }
 
 int main() {
-  // seeker::log::SetMinLogLevel(seeker::log::Level::DEBUG);
+  std::string s{"TEST"};
+  seeker::log::Info() << "TEST" << 1111 << 2222 << s << std::boolalpha << true;
+  
   std::vector<seeker::th::Thread::Ptr> ths;
   for (int i = 0; i < 5; i++) {
     ths.push_back(seeker::th::Thread::Ptr(new seeker::th::Thread(&Test1, "VNA#1" + std::to_string(i))));

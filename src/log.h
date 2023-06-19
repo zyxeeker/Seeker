@@ -371,28 +371,27 @@ class Manager {
 using Mgr = util::Single<Manager>;
 
 /**
- * @brief 日志接口实现层
+ * @brief 日志接口具体实现
  */
 class Log::Impl {
  public:
   /**
-   * @param level 日志等级
-   * @param file_name 文件名
-   * @param function_name 函数名
-   * @param line_num 行号
-   * @param timestamp 时间戳
+   * @param event 事件指针
    * @param logger_name 日志器名
    */
-  Impl(Level::level level,
-       const char* file_name, 
-       const char* function_name, 
-       int line_num,
-       uint64_t timestamp,
-       std::string logger_name = DEFAULT_LOGGER_NAME);       
+  Impl(Event::Ptr event,
+       std::string logger_name = DEFAULT_LOGGER_NAME);
   /**
-   * @brief 日志接口实现层析构函数, 当析构触发时输出日志
+   * @brief 日志接口实现层析构函数, 当析构触发时日志输出
    */
   ~Impl();
+  /**
+   * @brief 创建日志接口对象
+   * @param event 事件指针
+   * @param logger_name 日志名
+   */
+  static Log Create(Event::Ptr event,
+                    std::string logger_name);
   /**
    * @brief 获取事件指针
    */

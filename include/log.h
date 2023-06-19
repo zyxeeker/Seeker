@@ -17,6 +17,26 @@ namespace seeker {
 namespace log {
 
 /**
+ * @brief 接口定义宏
+ */
+#define LOG_API_PARAM_DEF                             \
+  std::string logger_name,                            \
+  const char* file_name,                              \
+  const char* function_name,                          \
+  int line_num,                                       \
+  uint64_t timestamp
+
+/**
+ * @brief 接口默认参数宏
+ */
+#define LOG_API_PARAM(LoggerName)                     \
+  std::string logger_name = LoggerName,               \
+  const char* file_name = __builtin_FILE(),           \
+  const char* function_name = __builtin_FUNCTION(),   \
+  int line_num = __builtin_LINE(),                    \
+  uint64_t timestamp = util::GetTimeStamp()
+
+/**
  * @brief 日志等级
  */
 struct Level {
@@ -46,44 +66,41 @@ struct Level {
 };
 
 /**
+ * @brief 日志接口
+ */
+class Log {
+ public:
+  using StdOut = std::basic_ostream<char, std::char_traits<char> >;
+  Log();
+  ~Log();
+
+  template<typename T>
+  Log& operator<<(const T& value) {
+    oss << value;
+    return (*this);
+  }
+
+  Log& operator<<(StdOut& (*StdOutFuncP)(StdOut&)) {
+    oss << StdOutFuncP;
+    return (*this);
+  }
+ private:
+  std::ostringstream oss;
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
+ private:
+  Log(std::unique_ptr<Impl> impl);
+  friend Log Debug(LOG_API_PARAM_DEF);
+  friend Log Info(LOG_API_PARAM_DEF);
+  friend Log Warn(LOG_API_PARAM_DEF);
+  friend Log Error(LOG_API_PARAM_DEF);
+  friend Log Fatal(LOG_API_PARAM_DEF);
+};
+
+/**
  * @brief 设置全局最低输出等级
  */
 void SetMinLogLevel(Level::level level);
-
-/**
- * @brief 日志接口
- */
-class Log : public std::ostringstream {
- public:
-  /**
-   * @param level 日志等级
-   * @param file_name 文件名
-   * @param function_name 函数名
-   * @param line_num 行号
-   * @param timestamp 时间戳
-   * @param logger_name 日志器名
-   */
-  Log(Level::level level,
-      const char* file_name, 
-      const char* function_name, 
-      int line_num,
-      uint64_t timestamp,
-      std::string logger_name);
-  ~Log();
- private:
-  /**
-   * @brief 接口的具体实现
-   */
-  class Impl;
-  std::shared_ptr<Impl> impl_;
-};
-
-#define LOG_API_PARAM(LoggerName) \
-  std::string logger_name = LoggerName, \
-  const char* file_name = __builtin_FILE(), \
-  const char* function_name = __builtin_FUNCTION(), \
-  int line_num = __builtin_LINE(), \
-  uint64_t timestamp = util::GetTimeStamp()
 
 /**
  * @brief 日志Debug输出

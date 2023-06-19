@@ -479,63 +479,54 @@ void Manager::DeleteLogger(std::string logger_name) {
 //// Manager End
 
 //// Log::impl Begin
-Log::Impl::Impl(Level::level level,
-                    const char* file_name, 
-                    const char* function_name, 
-                    int line_num,
-                    uint64_t timestamp,
-                    std::string logger_name)
-    : event_(new Event {
-        .level_ = std::move(level),
-        .file_name_ = std::move(file_name),
-        .function_name_ = std::move(function_name),
-        .line_num_ = std::move(line_num),
-        .timestamp_ = std::move(timestamp),
-        .thread_id_ = th::GetThreadId(),
-        .thread_name_ = th::GetThreadName(),
-      }),
+Log::Impl::Impl(Event::Ptr event,
+                std::string logger_name)
+    : event_(std::move(event)),
       logger_(Mgr::GetInstance().GetLogger(logger_name)) {}
 
 Log::Impl::~Impl() {
   logger_->Output(event_);
 }
+
+Log Log::Impl::Create(Event::Ptr event,
+                      std::string logger_name) {
+  return Log(std::make_unique<Impl>(event, std::move(logger_name)));
+}
 //// Log::impl End
 
 //// Log Begin
-Log::Log(Level::level level,
-                 const char* file_name, 
-                 const char* function_name, 
-                 int line_num,
-                 uint64_t timestamp,
-                 std::string logger_name) 
-    : impl_(new Impl(level,
-                     file_name,
-                     function_name,
-                     line_num,
-                     timestamp,
-                     logger_name)) {}
+Log::Log() = default;
 
 Log::~Log() {
-  swap(impl_->event()->content_);
+  oss.swap(impl_->event()->content_);
+}
+
+Log::Log(std::unique_ptr<Impl> impl) {
+  impl_ = std::move(impl);
 }
 //// Log::impl End
 
 /**
  * @brief 接口函数的实现
  */
-#define LOG_API_IMPLEMENT(LogName, Level) \
-  Log LogName(std::string logger_name, \
-              const char* file_name, \
-              const char* function_name, \
-              int line_num, \
-              uint64_t timestamp) { \
-    return Log(Level, \
-               std::move(file_name), \
-               std::move(function_name), \
-               std::move(line_num), \
-               std::move(timestamp), \
-               std::move(logger_name)); \
-  }
+#define LOG_API_IMPLEMENT(LogName, Level)                 \
+  Log LogName(std::string logger_name,                    \
+              const char* file_name,                      \
+              const char* function_name,                  \
+              int line_num,                               \
+              uint64_t timestamp) {                       \
+    return Log::Impl::Create(                             \
+        Event::Ptr(new Event {                            \
+            .level_         = Level,                      \
+            .file_name_     = std::move(file_name),       \
+            .function_name_ = std::move(function_name),   \
+            .line_num_      = std::move(line_num),        \
+            .timestamp_     = std::move(timestamp),       \
+            .thread_id_     = th::GetThreadId(),          \
+            .thread_name_   = th::GetThreadName(),        \
+        }),                                               \
+        std::move(logger_name));                          \
+  }                                                       \
 
   LOG_API_IMPLEMENT(Debug, Level::DEBUG)
   LOG_API_IMPLEMENT(Info, Level::INFO)
@@ -543,7 +534,6 @@ Log::~Log() {
   LOG_API_IMPLEMENT(Error, Level::ERROR)
   LOG_API_IMPLEMENT(Fatal, Level::FATAL)
 #undef LOG_API_IMPLEMENT
-
 
 } // namespace log
 } // namespace seeker
