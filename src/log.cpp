@@ -16,6 +16,8 @@
 namespace seeker {
 namespace log {
 
+const char* MODULE_NAME = "seeker::log";
+
 std::string Level::ToString(level l) {
     switch (l) {
 #define TRANS(name) \
@@ -250,7 +252,8 @@ void FormattingMgr::Init() {
         }
 
         if (last_bracket_index <= front_bracket_index) {
-          throw exception::LoggerParseInvalidKey("Fail to parse: Illegal datetime formatting string, maybe miss a bracket?");
+          throw LogicError::Create(MODULE_NAME, 
+                                   "(bad parse) illegal datetime formatting string, maybe miss a bracket?");
         }
         std::string date_sub_string = raw_.substr(++front_bracket_index,
                                                      last_bracket_index - front_bracket_index - 1);
@@ -262,10 +265,10 @@ void FormattingMgr::Init() {
       } else {
         auto res = k_formatter_cb.find(raw_.substr(j, 1));
         if (res == k_formatter_cb.end()) {
-          std::stringstream ss;
-          ss << "failed to parse: unknown param \"" << raw_[j]
-             << "\" at " << j;
-          throw exception::LoggerParseInvalidKey(ss.str());
+          std::ostringstream oss;
+          oss << "(bad parse) unknown param \"" << raw_[j]
+              << "\" at " << j;
+          throw LogicError::Create(MODULE_NAME, oss.str());
         }
         item_arr_.push_back(res->second(EMPTY_PARAM));
       }
@@ -399,7 +402,8 @@ Manager::Manager()
     auto std_output_ptr = std::make_shared<StdOutput>();
     default_logger_->AddOutput(std_output_ptr);
   } catch (...) {
-    throw exception::LoggerInitError(default_logger_->name());
+    throw LogicError::Create(MODULE_NAME, 
+                             "Logger(" + default_logger_->name() + ") failed to initialize");
   }
   // 增加监听, 未来如果进行配置刷新可以用上
   auto logger_init_func = 

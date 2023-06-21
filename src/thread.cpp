@@ -17,6 +17,8 @@
 namespace seeker {
 namespace th {
 
+const char* MODULE_NAME = "seeker::th";
+
 //// Thread Begin
 /**
  * @brief 用于在线程的栈区存储Thread::Impl指针

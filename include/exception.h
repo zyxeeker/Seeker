@@ -14,31 +14,15 @@
 #include <exception>
 
 namespace seeker {
-
-/**
- * @brief 异常类型
- */
-enum EXCEPTION_TYPE {
-  EXCEPTION_UNKNOWN_ERROR = 0,
-  EXCEPTION_LOGIC_ERROR,
-  EXCEPTION_RUNTIME_ERROR,
-  EXCEPTION_NUM
-};
-
 /**
  * @brief 异常
  */
 class Exception : public std::exception {
  public:
-  Exception(std::string what_str, 
-            EXCEPTION_TYPE type = EXCEPTION_UNKNOWN_ERROR);
+  Exception(std::string what_str);
   const char* what() const throw () override;
-  EXCEPTION_TYPE type() const {
-    return type_;
-  }
  private:
-  EXCEPTION_TYPE type_;
-  std::exception ex_;
+  std::string what_str_;
 };
 
 /**

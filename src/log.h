@@ -19,14 +19,13 @@
 #include "../include/util.h"
 #include "thread.h"
 
-namespace seeker {
-namespace log {
-
 #define DEFAULT_LOGGER_NAME           "root"
 #define DEFAULT_FORMATTER_PATTERN     "%d [%P](%r){%F:%L(%N)} %m"
 #define DEFAULT_DATETIME_PATTERN      "%Y-%m-%d %H:%M"
 #define EMPTY_PARAM                   ""
 
+namespace seeker {
+namespace log {
 /**
  * @brief 日志事件
  */

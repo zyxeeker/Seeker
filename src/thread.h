@@ -14,8 +14,6 @@
 #include "../include/thread.h"
 #include "../include/exception.h"
 
-#define MODULE_NAME "seeker::th"
-
 namespace seeker {
 namespace th {
 /**
