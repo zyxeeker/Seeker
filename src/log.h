@@ -65,6 +65,8 @@ struct Event {
   std::ostringstream content_;
 };
 
+// 用于FormattingMgr::IItem::ToStream 和 OutputMgr::IOutput::Output
+class Logger;
 /**
  * @brief 日志格式管理类, 用于解析格式和存储解析后各子项的顺序
  */
@@ -99,8 +101,8 @@ class FormattingMgr {
      * @param e 事件
      */
     virtual void ToStream(std::ostream &os, 
-                          const std::string& logger_name, 
-                          Event::Ptr event_ptr) = 0;
+                          const std::shared_ptr<Logger> logger, 
+                          const Event::Ptr event_ptr) = 0;
   };
   /**
    * @brief 添加子项
@@ -158,7 +160,7 @@ class OutputMgr {
      * @brief 输出接口
      * @param buf 传入的字符串数据
      */
-    virtual void Output(const std::string& logger_name,
+    virtual void Output(const std::shared_ptr<Logger> logger,
                         const std::vector<FormattingMgr::IItem::Ptr>& items,
                         const Event::Ptr event_ptr) = 0;
   };
@@ -188,7 +190,7 @@ class OutputMgr {
 /**
  * @brief 日志类, 用于将事件输出至控制台和文件
  */
-class Logger {
+class Logger : public std::enable_shared_from_this<Logger> {
  public:
   using Ptr = std::shared_ptr<Logger>;
   /**

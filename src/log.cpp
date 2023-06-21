@@ -59,9 +59,9 @@ class LoggerNameItem : public FormattingMgr::IItem {
  public:
   LoggerNameItem(std::string buf) {}
   void ToStream(std::ostream &os, 
-                const std::string& logger_name, 
-                Event::Ptr event_ptr) override {
-    os << logger_name;
+                const Logger::Ptr logger, 
+                const Event::Ptr event_ptr) override {
+    os << logger->name();
   }
 };
 
@@ -72,8 +72,8 @@ class LevelItem : public FormattingMgr::IItem {
  public:
   LevelItem(std::string buf) {}
   void ToStream(std::ostream &os, 
-                const std::string& logger_name, 
-                Event::Ptr event_ptr) override {
+                const Logger::Ptr logger, 
+                const Event::Ptr event_ptr) override {
     os << Level::ToString(event_ptr->level_);
   }
 };
@@ -85,8 +85,8 @@ class FileNameItem : public FormattingMgr::IItem {
  public:
   FileNameItem(std::string buf) {}
   void ToStream(std::ostream &os, 
-                const std::string& logger_name, 
-                Event::Ptr event_ptr) override {
+                const Logger::Ptr logger, 
+                const Event::Ptr event_ptr) override {
     os << event_ptr->file_name_;
   }
 };
@@ -98,8 +98,8 @@ class FunctionItem : public FormattingMgr::IItem {
  public:
   FunctionItem(std::string buf) {}
   void ToStream(std::ostream &os, 
-                const std::string& logger_name, 
-                Event::Ptr event_ptr) override {
+                const Logger::Ptr logger, 
+                const Event::Ptr event_ptr) override {
     os << event_ptr->function_name_;
   }
 };
@@ -111,8 +111,8 @@ class LineItem : public FormattingMgr::IItem {
  public:
   LineItem(std::string buf) {}
   void ToStream(std::ostream &os, 
-                const std::string& logger_name, 
-                Event::Ptr event_ptr) override {
+                const Logger::Ptr logger, 
+                const Event::Ptr event_ptr) override {
     // 行号为0时输出"(null)"
     if (event_ptr->line_num_)
       os << event_ptr->line_num_;
@@ -129,8 +129,8 @@ class TimeItem : public FormattingMgr::IItem {
   TimeItem(std::string buf)
     : format_(buf) {}
   void ToStream(std::ostream &os, 
-                const std::string& logger_name, 
-                Event::Ptr event_ptr) override {
+                const Logger::Ptr logger, 
+                const Event::Ptr event_ptr) override {
   // 当没有格式时默认输出时间戳
   if (format_.length() == 0)
     os << event_ptr->timestamp_;
@@ -148,8 +148,8 @@ class ThreadIdItem : public FormattingMgr::IItem {
  public:
   ThreadIdItem(std::string buf) {}
   void ToStream(std::ostream &os, 
-                const std::string& logger_name, 
-                Event::Ptr event_ptr) override {
+                const Logger::Ptr logger, 
+                const Event::Ptr event_ptr) override {
     os << event_ptr->thread_id_;
   }
 };
@@ -161,8 +161,8 @@ class ThreadNameItem : public FormattingMgr::IItem {
  public:
   ThreadNameItem(std::string buf) {}
   void ToStream(std::ostream &os, 
-                const std::string& logger_name, 
-                Event::Ptr event_ptr) override {
+                const Logger::Ptr logger, 
+                const Event::Ptr event_ptr) override {
     os << event_ptr->thread_name_;
   }
 };
@@ -174,8 +174,8 @@ class ContentItem : public FormattingMgr::IItem {
  public:
   ContentItem(std::string buf) {}
   void ToStream(std::ostream &os, 
-                const std::string& logger_name, 
-                Event::Ptr event_ptr) override {
+                const Logger::Ptr logger, 
+                const Event::Ptr event_ptr) override {
     os << event_ptr->content_.str();
   }
 };
@@ -188,8 +188,8 @@ class StringItem : public FormattingMgr::IItem {
   StringItem(std::string buf) 
     : buff_(std::move(buf)) {}
   void ToStream(std::ostream &os, 
-                const std::string& logger_name, 
-                Event::Ptr event_ptr) override {
+                const Logger::Ptr logger, 
+                const Event::Ptr event_ptr) override {
     os << buff_;
   }
  private:
@@ -320,11 +320,11 @@ class FileOutput : public OutputMgr::IOutput {
       stream_.close();
     return Open();
   }
-  void Output(const std::string& logger_name,
+  void Output(const Logger::Ptr logger,
               const std::vector<FormattingMgr::IItem::Ptr>& items,
               const Event::Ptr event_ptr) override {
     for (auto &i : items) {
-      i->ToStream(stream_, logger_name, event_ptr);
+      i->ToStream(stream_, logger, event_ptr);
     }
     stream_ << std::endl;
   }
@@ -348,12 +348,12 @@ static th::Mutex kStdoutMutex;
  */
 class StdOutput : public OutputMgr::IOutput {
  public:
-  void Output(const std::string& logger_name,
+  void Output(const Logger::Ptr logger,
               const std::vector<FormattingMgr::IItem::Ptr>& items,
               const Event::Ptr event_ptr) override {
     th::MutexGuard sg(kStdoutMutex);
     for (auto &i : items) {
-      i->ToStream(std::cout, logger_name, event_ptr);
+      i->ToStream(std::cout, logger, event_ptr);
     }
     std::cout << std::endl;
   }
@@ -376,7 +376,7 @@ void Logger::Output(Event::Ptr event_ptr) {
     return;
   th::MutexGuard sg(mutex_);
   for (auto &i : output_mgr_->output_arr()) {
-    i->Output(name_, formatting_mgr_->item_arr(), event_ptr);
+    i->Output(shared_from_this(), formatting_mgr_->item_arr(), event_ptr);
   }
 }
 
