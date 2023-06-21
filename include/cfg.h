@@ -197,12 +197,18 @@ class Var {
     return *value_ptr_;
   }
   /**
+   * @brief 反序列化
+   */
+  nlohmann::json ToJsonObj() {
+    th::RWMutexRDGuard sg(mutex_);
+    return VarCast<ValueType, nlohmann::json>()(*value_ptr_);
+  }
+  /**
    * @brief 序列化 
    */
   std::string ToString() {
     th::RWMutexRDGuard sg(mutex_);
-    return nlohmann::to_string(
-              VarCast<ValueType, nlohmann::json>()(*value_ptr_));
+    return nlohmann::to_string(ToJsonObj());
   }
   ChangedEventCb GetChangedEventCb(int key) {
     th::RWMutexRDGuard sg(mutex_);
@@ -334,6 +340,8 @@ class Var {
  */
 class Manager {
  public:
+  Manager();
+  ~Manager();
   /**
    * @brief 查询并返回需要的元素
    * @tparam ValueType 元素数据类型
@@ -342,33 +350,82 @@ class Manager {
    */
   template<typename ValueType>
   Var<ValueType> Query(std::string key);
- private:
   /**
-   * @brief 数据互斥锁, 防止使用Query时还未初始化
-  */
-  static th::Mutex& GetMutex() {
-    static th::Mutex mutex_;
-    return mutex_;
-  }
+   * @brief 添加元素
+   * @tparam ValueType 元素数据类型
+   * @param key 指定的key
+   * @param var 由Var创建的元素
+   */
+  template<typename ValueType>
+  void Add(const std::string& key, Var<ValueType>& var);
+  /**
+   * @brief 移除元素
+   * @param key 指定的key
+   * @return true 移除成功
+   * @return false 如果移除不存在的元素以及移除失败则返回失败
+   */
+  bool Remove(const std::string& key);
+  /**
+   * @brief 改变指定元素的值
+   * @tparam ValueType 元素数据类型
+   * @param key 指定的key
+   * @param var 由Var创建的元素
+   */
+  template<typename ValueType>
+  void Modify(const std::string& key, Var<ValueType>& var);
+  /**
+   * @brief 重载配置文件
+   */
+  void Reload();
+  /**
+   * @brief 输出配置文件
+   */
+  void List();
+
+ private:
+  class Impl;
+  std::unique_ptr<Impl> impl_;
  private:
   /**
    * @brief 获取配置文件json数据
    */
-  const nlohmann::json& GetJsonData();
+  nlohmann::json& GetCfgJsonData();
 };
 
 using Mgr = util::Single<Manager>;
 
 template<typename ValueType>
 Var<ValueType> Manager::Query(std::string key) {
-  th::MutexGuard sg(GetMutex());
-  auto &data = GetJsonData();
+  const auto &data = GetCfgJsonData();
   if (data.is_null())
     return Var<ValueType>(ValueType{});
   auto res = data.find(key);
   if (res == data.end())
     return Var<ValueType>(ValueType{});
   return Var<ValueType>(res.value());
+}
+
+template<typename ValueType>
+void Manager::Add(const std::string& key, Var<ValueType>& var) {
+  auto &data = GetCfgJsonData();
+  if (data.is_null()) {
+    // TODO: throw exception
+    return;
+  }
+  auto value = var.ToJsonObj();
+  data.push_back(
+    nlohmann::json::object_t::value_type(key, std::move(value)));
+}
+
+template<typename ValueType>
+void Manager::Modify(const std::string& key, Var<ValueType>& var) {
+  auto &data = GetCfgJsonData();
+  auto res = data.find(key);
+  if (res == data.end()) {
+    // TODO: throw exception
+    return;
+  }
+  data[key] = var.ToJsonObj();
 }
 
 } // cfg

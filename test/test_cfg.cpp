@@ -37,4 +37,14 @@ int main() {
   // BOOL
   auto bool_num = seeker::cfg::Mgr::GetInstance().Query<bool>("bool");
   std::cout << std::boolalpha << "bool: " << bool_num.GetValue() << std::endl;
+  // ADD
+  seeker::cfg::Mgr::GetInstance().Add("add_bool",bool_num);
+  seeker::cfg::Mgr::GetInstance().Add("mod_bool",bool_num);
+  seeker::cfg::Mgr::GetInstance().List();
+  // REMOVE
+  seeker::cfg::Mgr::GetInstance().Remove("add_bool");
+  seeker::cfg::Mgr::GetInstance().List();
+  // MODIFY
+  seeker::cfg::Mgr::GetInstance().Modify("mod_bool", float_num);
+  seeker::cfg::Mgr::GetInstance().List();
 }

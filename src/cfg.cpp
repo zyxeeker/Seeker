@@ -23,11 +23,10 @@ struct ManagerCfg {
   nlohmann::json data_;
 };
 
-static nlohmann::json& ManagerJsonData() {
+static nlohmann::json& CfgJsonData() {
   static ManagerCfg kManagerCfg;
   if (!kManagerCfg.file_stream_.is_open()) {
     kManagerCfg.file_stream_.open(FILE_PATH);
-
     if (kManagerCfg.file_stream_.fail()) {
       std::cout << "failed to open file!" << std::endl;
       goto END;
@@ -44,8 +43,36 @@ END:
   return kManagerCfg.data_;
 }
 
-const nlohmann::json& Manager::GetJsonData() {
-  return ManagerJsonData();
+nlohmann::json& Manager::Impl::GetJsonData() {
+  th::MutexGuard sg(GetMutex());
+  return CfgJsonData();
+}
+
+nlohmann::json& Manager::GetCfgJsonData() {
+  return impl_->GetJsonData();
+}
+
+Manager::Manager()
+    : impl_(std::make_unique<Impl>()) {}
+
+Manager::~Manager() = default;
+
+bool Manager::Remove(const std::string& key) {
+  auto &data = GetCfgJsonData();
+  auto res = data.find(key);
+  if (res == data.end()) {
+    return false;
+  }
+  data.erase(key);
+  return true;
+}
+
+void Manager::Reload() {
+  //TODO
+}
+
+void Manager::List() {
+  log::Info("cfg") << nlohmann::to_string(impl_->GetJsonData());
 }
 
 } // cfg

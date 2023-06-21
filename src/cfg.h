@@ -76,6 +76,25 @@ struct VarCast<nlohmann::json, log::LoggerJsonObj> {
   }
 };
 
+/**
+ * @brief 管理器中间实现
+ */
+class Manager::Impl {
+ public:
+  Impl() = default;
+  ~Impl() = default;
+
+  nlohmann::json& GetJsonData();
+ private:
+  /**
+   * @brief 数据互斥锁, 防止使用Query时还未初始化
+   */
+  static th::Mutex& GetMutex() {
+    static th::Mutex mutex_;
+    return mutex_;
+  }
+};
+
 } // cfg
 } // seeker
 
