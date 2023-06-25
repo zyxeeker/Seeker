@@ -20,6 +20,7 @@
 #include <nlohmann/json.hpp>
 #include "util.h"
 #include "thread.h"
+#include "exception.h"
 
 namespace seeker {
 namespace cfg {
@@ -28,26 +29,27 @@ namespace cfg {
  * @brief 类型转换模板
  * @tparam SrcValueType 原元素类型
  * @tparam DstValueType 目标元素类型
+ * @throw seeker::RunTimeError 转换异常时抛出
  */
 template<typename SrcValueType, 
          typename DstValueType,
          typename = void>
 struct VarCast {
   DstValueType operator()(const SrcValueType& value) {
-    std::cout << "unknown cast behavior!" << std::endl;
-    return DstValueType{};
+    throw RunTimeError::Create("seeker::cfg::VarCast", "unknown cast behavior!");
   }
 };
 
 /**
  * @brief nlohmann::json类型转bool
+ * @throw seeker::RunTimeError 类型不为指定类型时抛出
  */
 template<>
 struct VarCast<nlohmann::json, bool> {
   bool operator()(const nlohmann::json& value) {
     if (!value.is_boolean()) {
-      std::cout << "bad type: the value is not BOOL type!" << std::endl;
-      return bool{};
+      throw RunTimeError::Create("seeker::cfg::VarCast", 
+                                 "<bad type> the value is not BOOL type!");
     }
     return value.get<bool>();
   }
@@ -56,6 +58,7 @@ struct VarCast<nlohmann::json, bool> {
 /**
  * @brief nlohmann::json类型转整数类型
  * @tparam DstValueType 整数类型
+ * @throw seeker::RunTimeError 类型不为指定类型时抛出
  */
 template<typename DstValueType>
 struct VarCast<nlohmann::json, 
@@ -63,8 +66,8 @@ struct VarCast<nlohmann::json,
                std::enable_if_t<std::is_integral<DstValueType>::value> > {
   DstValueType operator()(const nlohmann::json& value) {
     if (!value.is_number_integer()) {
-      std::cout << "bad type: the value is not INT type!" << std::endl;
-      return DstValueType{};
+      throw RunTimeError::Create("seeker::cfg::VarCast", 
+                                 "<bad type> the value is not INT type!");
     }
     return value.get<DstValueType>();
   }
@@ -73,6 +76,7 @@ struct VarCast<nlohmann::json,
 /**
  * @brief nlohmann::json类型转浮点类型
  * @tparam DstValueType 浮点类型
+ * @throw seeker::RunTimeError 类型不为指定类型时抛出
  */
 template<typename DstValueType>
 struct VarCast<nlohmann::json, 
@@ -80,8 +84,8 @@ struct VarCast<nlohmann::json,
                std::enable_if_t<std::is_floating_point<DstValueType>::value> > {
   DstValueType operator()(const nlohmann::json& value) {
     if (!value.is_number_float()) {
-      std::cout << "bad type: the value is not FLOAT type!" << std::endl;
-      return DstValueType{};
+      throw RunTimeError::Create("seeker::cfg::VarCast", 
+                                 "<bad type> the value is not FLOAT type!");
     }
     return value.get<DstValueType>();
   }
@@ -90,6 +94,7 @@ struct VarCast<nlohmann::json,
 /**
  * @brief nlohmann::json类型转无符号类型
  * @tparam DstValueType 无符号类型
+ * @throw seeker::RunTimeError 类型不为指定类型时抛出
  */
 template<typename DstValueType>
 struct VarCast<nlohmann::json, 
@@ -97,8 +102,8 @@ struct VarCast<nlohmann::json,
                std::enable_if_t<std::is_unsigned<DstValueType>::value> > {
   DstValueType operator()(const nlohmann::json& value) {
     if (!value.is_number_unsigned()) {
-      std::cout << "bad type: the value is not UNSIGNED type!" << std::endl;
-      return DstValueType{};
+      throw RunTimeError::Create("seeker::cfg::VarCast", 
+                                 "<bad type> the value is not UNSIGNED type!");
     }
     return value.get<DstValueType>();
   }
@@ -107,6 +112,7 @@ struct VarCast<nlohmann::json,
 /**
  * @brief nlohmann::json类型转顺序/关联容器
  * @tparam DstValueType 顺序/关联容器类型
+ * @throw seeker::RunTimeError 类型不为指定类型时抛出
  */
 template<typename DstValueType>
 struct VarCast<nlohmann::json, 
@@ -116,8 +122,8 @@ struct VarCast<nlohmann::json,
                                 util::is_std_set<DstValueType>::value> > {
   DstValueType operator()(const nlohmann::json& value) {
     if (!value.is_array()) {
-      std::cout << "bad type: the value is not Sequential type!" << std::endl;
-      return DstValueType{};
+      throw RunTimeError::Create("seeker::cfg::VarCast", 
+                                 "<bad type> the value is not Sequential type!");
     }
     auto arr = value.get<std::vector<nlohmann::json> >();
     DstValueType res;
@@ -183,7 +189,15 @@ class Var {
  public:
   using ValuePtr = std::shared_ptr<ValueType>;
   using ChangedEventCb = std::function<void(ValuePtr old_v, ValuePtr new_v)>;
+  /**
+   * @brief 默认以目标类型的默认值创建
+   */
   Var() : value_ptr_(new ValueType()) {}
+  /**
+   * @brief 用于json值传入并进行转换至目标类型
+   * @param json_value 传入的json变量
+   * @throw seeker::RunTimeError 类型转换不成功时则抛出
+   */
   Var(nlohmann::json json_value)
     : value_ptr_(new ValueType(
           VarCast<nlohmann::json, ValueType>()(std::move(json_value)))) {}
@@ -335,6 +349,8 @@ class Var {
   th::RWMutex mutex_;
 };
 
+using JsonDataPtr = std::shared_ptr<nlohmann::json>;
+
 /**
  * @brief 管理器
  */
@@ -349,7 +365,16 @@ class Manager {
    * @return 未查询到则返回ValueType默认值
    */
   template<typename ValueType>
-  Var<ValueType> Query(std::string key);
+  Var<ValueType> Query(std::string key) {
+    const auto data = GetCfgDataPtr();
+    if (!data) {
+      return Var<ValueType>(ValueType{});
+    }
+    auto res = data->find(key);
+    return res == data->end() ? 
+              Var<ValueType>(ValueType{}) :
+              Var<ValueType>(res.value());
+  }
   /**
    * @brief 添加元素
    * @tparam ValueType 元素数据类型
@@ -357,7 +382,15 @@ class Manager {
    * @param var 由Var创建的元素
    */
   template<typename ValueType>
-  void Add(const std::string& key, Var<ValueType>& var);
+  void Add(const std::string& key, Var<ValueType>& var) {
+    auto data = GetCfgDataPtr();
+    if (!data) {
+      return;
+    }
+    auto value = var.ToJsonObj();
+    data->push_back(
+      nlohmann::json::object_t::value_type(key, std::move(value)));
+  }
   /**
    * @brief 移除元素
    * @param key 指定的key
@@ -372,61 +405,36 @@ class Manager {
    * @param var 由Var创建的元素
    */
   template<typename ValueType>
-  void Modify(const std::string& key, Var<ValueType>& var);
+  void Modify(const std::string& key, Var<ValueType>& var) {
+    auto data = GetCfgDataPtr();
+    if (!data) {
+      return;
+    }
+    auto res = data->find(key);
+    if (res != data->end()) {
+      (*data)[key] = var.ToJsonObj(); 
+      return;
+    }
+  }
   /**
-   * @brief 重载配置文件
+   * @brief 保存配置文件
    */
-  void Reload();
+  void Save();
   /**
-   * @brief 输出配置文件
+   * @brief 输出所有配置
    */
   void List();
-
  private:
   class Impl;
   std::unique_ptr<Impl> impl_;
  private:
   /**
-   * @brief 获取配置文件json数据
+   * @brief 获取配置数据指针
    */
-  nlohmann::json& GetCfgJsonData();
+  JsonDataPtr GetCfgDataPtr();
 };
 
 using Mgr = util::Single<Manager>;
-
-template<typename ValueType>
-Var<ValueType> Manager::Query(std::string key) {
-  const auto &data = GetCfgJsonData();
-  if (data.is_null())
-    return Var<ValueType>(ValueType{});
-  auto res = data.find(key);
-  if (res == data.end())
-    return Var<ValueType>(ValueType{});
-  return Var<ValueType>(res.value());
-}
-
-template<typename ValueType>
-void Manager::Add(const std::string& key, Var<ValueType>& var) {
-  auto &data = GetCfgJsonData();
-  if (data.is_null()) {
-    // TODO: throw exception
-    return;
-  }
-  auto value = var.ToJsonObj();
-  data.push_back(
-    nlohmann::json::object_t::value_type(key, std::move(value)));
-}
-
-template<typename ValueType>
-void Manager::Modify(const std::string& key, Var<ValueType>& var) {
-  auto &data = GetCfgJsonData();
-  auto res = data.find(key);
-  if (res == data.end()) {
-    // TODO: throw exception
-    return;
-  }
-  data[key] = var.ToJsonObj();
-}
 
 } // cfg
 } // seeker

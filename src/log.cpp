@@ -253,7 +253,7 @@ void FormattingMgr::Init() {
 
         if (last_bracket_index <= front_bracket_index) {
           throw LogicError::Create(MODULE_NAME, 
-                                   "(bad parse) illegal datetime formatting string, maybe miss a bracket?");
+                                   "<bad parse> illegal datetime formatting string, maybe miss a bracket?");
         }
         std::string date_sub_string = raw_.substr(++front_bracket_index,
                                                      last_bracket_index - front_bracket_index - 1);
@@ -266,7 +266,7 @@ void FormattingMgr::Init() {
         auto res = k_formatter_cb.find(raw_.substr(j, 1));
         if (res == k_formatter_cb.end()) {
           std::ostringstream oss;
-          oss << "(bad parse) unknown param \"" << raw_[j]
+          oss << "<bad parse> unknown param \"" << raw_[j]
               << "\" at " << j;
           throw LogicError::Create(MODULE_NAME, oss.str());
         }

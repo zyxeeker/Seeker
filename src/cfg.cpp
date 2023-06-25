@@ -18,39 +18,79 @@
 namespace seeker {
 namespace cfg {
 
-struct ManagerCfg {
-  std::ifstream file_stream_;
-  nlohmann::json data_;
-};
+typedef struct CfgMgr_ {
+  std::fstream file_stream_;
+  JsonDataPtr data_;
+} CfgDataMgr;
 
-static nlohmann::json& CfgJsonData() {
-  static ManagerCfg kManagerCfg;
-  if (!kManagerCfg.file_stream_.is_open()) {
-    kManagerCfg.file_stream_.open(FILE_PATH);
-    if (kManagerCfg.file_stream_.fail()) {
-      std::cout << "failed to open file!" << std::endl;
-      goto END;
+static CfgDataMgr& CfgData() {
+  static CfgDataMgr kCfgDataMgr;
+  if (!kCfgDataMgr.data_) {
+    // 关闭已打开的文件流
+    if (kCfgDataMgr.file_stream_.is_open()) {
+      kCfgDataMgr.file_stream_.close();
     }
-
+    // 以只读模式打开
+    kCfgDataMgr.file_stream_.open(FILE_PATH, std::ios::in);
+    if (kCfgDataMgr.file_stream_.fail()) {
+      throw RunTimeError::Create(MODULE_NAME, 
+                                "failed to open cfg flie to read!");
+    }
+    // 解析配置
     try {
-      kManagerCfg.data_ = nlohmann::json::parse(kManagerCfg.file_stream_);
+      kCfgDataMgr.data_ = std::make_shared<nlohmann::json>
+                              (nlohmann::json::parse(kCfgDataMgr.file_stream_));
     } catch (nlohmann::json::exception ex) {
-      std::cout << ex.what() << std::endl;
-      goto END;
+      throw RunTimeError::Create(MODULE_NAME, ex.what());
     }
   }
-END:
-  return kManagerCfg.data_;
+  return kCfgDataMgr;
 }
 
-nlohmann::json& Manager::Impl::GetJsonData() {
+//// Impl Begin
+
+void Manager::Impl::Init() {
   th::MutexGuard sg(GetMutex());
-  return CfgJsonData();
+  auto& cfg_data = CfgData();
+  // 关闭已打开的文件流
+  if (cfg_data.file_stream_.is_open()) {
+    cfg_data.file_stream_.close();
+  }
+  // 以只读模式打开
+  cfg_data.file_stream_.open(FILE_PATH, std::ios::in);
+  if (cfg_data.file_stream_.fail()) {
+    throw RunTimeError::Create(MODULE_NAME, 
+                               "failed to open cfg flie to read!");
+  }
+  // 解析配置
+  try {
+    cfg_data.data_ = std::make_shared<nlohmann::json>
+                        (nlohmann::json::parse(cfg_data.file_stream_));
+  } catch (nlohmann::json::exception ex) {
+    throw RunTimeError::Create(MODULE_NAME, ex.what());
+  }
 }
 
-nlohmann::json& Manager::GetCfgJsonData() {
-  return impl_->GetJsonData();
+void Manager::Impl::Save() {
+  th::MutexGuard sg(GetMutex());
+  auto &data = CfgData();
+  if (data.file_stream_.is_open()) {
+    data.file_stream_.close();
+  }
+  // 以只写模式打开
+  data.file_stream_.open(FILE_PATH, std::ios::out | std::ios::trunc);
+  if (data.file_stream_.fail()) {
+    throw RunTimeError::Create(MODULE_NAME, 
+                               "failed to open cfg flie to save!");
+  }
+  data.file_stream_ << *(data.data_);
 }
+
+JsonDataPtr Manager::Impl::GetJsonDataPtr() {
+  th::MutexGuard sg(GetMutex());
+  return CfgData().data_;
+}
+//// Impl End
 
 Manager::Manager()
     : impl_(std::make_unique<Impl>()) {}
@@ -58,21 +98,34 @@ Manager::Manager()
 Manager::~Manager() = default;
 
 bool Manager::Remove(const std::string& key) {
-  auto &data = GetCfgJsonData();
-  auto res = data.find(key);
-  if (res == data.end()) {
+  auto data = GetCfgDataPtr();
+  if (!data) {
     return false;
   }
-  data.erase(key);
+  auto res = data->find(key);
+  if (res == data->end()) {
+    return false;
+  }
+  data->erase(key);
   return true;
 }
 
-void Manager::Reload() {
-  //TODO
+void Manager::Save() {
+  impl_->Save();
 }
 
 void Manager::List() {
-  log::Info("cfg") << nlohmann::to_string(impl_->GetJsonData());
+  log::Info("cfg") << nlohmann::to_string(*(impl_->GetJsonDataPtr()));
+}
+
+JsonDataPtr Manager::GetCfgDataPtr() {
+  try {
+    auto ptr = impl_->GetJsonDataPtr();
+    return ptr;
+  } catch (RunTimeError ex) {
+    log::Fatal("cfg") << ex.what();
+  }
+  return nullptr;
 }
 
 } // cfg

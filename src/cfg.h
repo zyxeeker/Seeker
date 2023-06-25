@@ -15,6 +15,8 @@
 namespace seeker {
 namespace cfg {
 
+static const char* MODULE_NAME = "seeker::cfg";
+
 /**
  * @brief nlohmann::json类型转换为log::LoggerOutputerJsonObj
  * @tparam  
@@ -83,8 +85,18 @@ class Manager::Impl {
  public:
   Impl() = default;
   ~Impl() = default;
-
-  nlohmann::json& GetJsonData();
+  /**
+   * @brief 初始化并解析
+   */
+  void Init();
+  /**
+   * @brief 保存至文件
+   */
+  void Save();
+  /**
+   * @brief 获取Json数据指针
+   */
+  JsonDataPtr GetJsonDataPtr();
  private:
   /**
    * @brief 数据互斥锁, 防止使用Query时还未初始化
