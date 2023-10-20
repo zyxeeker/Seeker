@@ -3,7 +3,15 @@ project(Seeker)
 
 set(CMAKE_CXX_FLAGS -pthread)
 
-include_directories(include src 3rd)
+
+# 3rd dir
+set(3RD ${CMAKE_SOURCE_DIR}/3rd)
+# nlohmann json
+add_subdirectory(${3RD}/nlohmann)
+
+include_directories(include src)
+
+link_libraries(Nlohmann)
 
 add_subdirectory(src)
 add_subdirectory(test)
