@@ -9,6 +9,7 @@
 #ifndef __SEEKER_CFG_HPP__
 #define __SEEKER_CFG_HPP__
 
+#include <tuple>
 #include <vector>
 #include <string>
 #include <sstream>
@@ -18,7 +19,41 @@
 
 #include <nlohmann/json.hpp>
 
+#define DEFINE_PROPERTIES(STRUCT, ...)                              \
+  using ValueType = STRUCT;                                         \
+  static constexpr auto Properties = std::make_tuple(__VA_ARGS__);  \
+
+#define DEFINE_PROPERTY_SCHME(NAME, DST_NAME)         \
+  seeker::CfgVarProperty(&ValueType::NAME, DST_NAME)  \
+
 namespace seeker {
+
+template <typename Class, typename T>
+struct CfgVarPropertyImpl {
+  constexpr CfgVarPropertyImpl(T Class::*member, const char* name)
+      : Member(member), 
+        Name(name) {}
+  using Type = T;
+  const char* Name;
+  T Class::*Member;
+};
+
+template <typename Class, typename T>
+constexpr auto CfgVarProperty(T Class::*member, const char* name) {
+  return CfgVarPropertyImpl<Class, T>(member, name);
+}
+
+template <typename Tuple, typename Handler, std::size_t... Indexs>
+constexpr void TupleForEachImpl(const Tuple& tuple, Handler&& handler, 
+                                std::index_sequence<Indexs...>) {
+  (handler(std::get<Indexs>(tuple)), ...);
+}
+ 
+template <typename Tuple, typename Handler>
+constexpr void TupleForEach(const Tuple& tuple, Handler&& handler) {
+  TupleForEachImpl(tuple, std::forward<Handler>(handler), 
+                   std::make_index_sequence<std::tuple_size_v<Tuple>>());
+}
 
 template <typename T>
 class Transfer {

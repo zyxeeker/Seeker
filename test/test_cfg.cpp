@@ -6,6 +6,17 @@
 
 #include "cfg.hpp"
 
+struct Test {
+  int a;
+  double A;
+
+  DEFINE_PROPERTIES(
+    Test,
+    DEFINE_PROPERTY_SCHME(A, "A"),
+    DEFINE_PROPERTY_SCHME(a, "a")
+  )
+};
+
 int main() {
   std::fstream fs;
   fs.open("test.json", std::ios::in);
@@ -15,6 +26,19 @@ int main() {
   } catch(nlohmann::json::exception ex) {
     std::cout << ex.what() << std::endl;
   }
+
+  Test test;
+  test.A = 2.f;
+  test.a = 1;
+  seeker::TupleForEach(test.Properties, [&](const auto& e){
+    std::cout << "AA: " << test.*(e.Member) << std::endl;
+  });
+  Test test1;
+  test1.a = 2;
+  test1.A = 3.f;
+  seeker::TupleForEach(test1.Properties, [&](const auto& e){
+    std::cout << "AA1: " << test1.*(e.Member) << std::endl;
+  });
 
   auto i = seeker::Transfer<int>::Convert(data["int"]);
   std::cout << "res: " << i << std::endl;
