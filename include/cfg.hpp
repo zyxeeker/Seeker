@@ -56,6 +56,34 @@ constexpr void TupleForEach(const Tuple& tuple, Handler&& handler) {
 }
 
 template <typename T>
+nlohmann::json ToJson(T& value) {
+  nlohmann::json json;
+    TupleForEach(value.Properties, [&](const auto e) {
+    using ValueType = typename decltype(e)::Type;
+    if constexpr (std::is_class<ValueType>::value) {
+      json[e.Name] = ToJson<ValueType>(value.*(e.Member));
+    } else {
+      json[e.Name] = value.*(e.Member);
+    }
+  });
+  return json;
+}
+
+template<typename T>
+T FromJson(nlohmann::json &json) {
+  T value;
+  TupleForEach(value.Properties, [&](const auto e) {
+    using ValueType = typename decltype(e)::Type;
+    if constexpr (std::is_class<ValueType>::value) {
+      value.*(e.Member) = FromJson<ValueType>(json[e.Name]);
+    } else {
+      value.*(e.Member) = ((nlohmann::json&)json[e.Name]).get<ValueType>();
+    }
+  });
+  return value;
+}
+
+template <typename T>
 class Transfer {
  public:
   static T Convert(const nlohmann::json& value) {

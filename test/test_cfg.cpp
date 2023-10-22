@@ -1,19 +1,32 @@
 #include <fstream>
 #include <iostream>
 #include <string>
-#include <nlohmann/json.hpp>
 #include <vector>
+#include <type_traits>
+
+#include <nlohmann/json.hpp>
 
 #include "cfg.hpp"
+
+struct TestB {
+  int a;
+
+  DEFINE_PROPERTIES(
+    TestB,
+    DEFINE_PROPERTY_SCHME(a, "a")
+  )
+};
 
 struct Test {
   int a;
   double A;
+  struct TestB b;
 
   DEFINE_PROPERTIES(
     Test,
     DEFINE_PROPERTY_SCHME(A, "A"),
-    DEFINE_PROPERTY_SCHME(a, "a")
+    DEFINE_PROPERTY_SCHME(a, "a"),
+    DEFINE_PROPERTY_SCHME(b, "b")
   )
 };
 
@@ -28,16 +41,22 @@ int main() {
   }
 
   Test test;
-  test.A = 2.f;
   test.a = 1;
-  seeker::TupleForEach(test.Properties, [&](const auto& e){
-    std::cout << "AA: " << test.*(e.Member) << std::endl;
-  });
-  Test test1;
-  test1.a = 2;
-  test1.A = 3.f;
-  seeker::TupleForEach(test1.Properties, [&](const auto& e){
-    std::cout << "AA1: " << test1.*(e.Member) << std::endl;
+  test.A = 2.2f;
+  test.b.a = 100;
+  auto test_json = seeker::ToJson(test);
+  auto test_json_str = nlohmann::to_string(test_json);
+  std::cout << "TEST STR1: " << test_json_str << std::endl;
+
+  auto test_struct = seeker::FromJson<Test>(test_json);
+  auto test_struct_json = seeker::ToJson(test_struct);
+  auto test_struct_json_str = nlohmann::to_string(test_struct_json);
+  std::cout << "TEST STR2: " << test_struct_json_str << std::endl;
+
+  TestB testb;
+  testb.a = 2;
+  seeker::TupleForEach(testb.Properties, [&](const auto& e){
+    std::cout << "AA1: " << testb.*(e.Member) << std::endl;
   });
 
   auto i = seeker::Transfer<int>::Convert(data["int"]);
