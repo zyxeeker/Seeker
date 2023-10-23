@@ -13,7 +13,7 @@ struct TestB {
 
   DEFINE_PROPERTIES(
     TestB,
-    DEFINE_PROPERTY_SCHME(a, "a")
+    PROPERTY_SCHME(a, "a")
   )
 };
 
@@ -24,13 +24,31 @@ struct Test {
 
   DEFINE_PROPERTIES(
     Test,
-    DEFINE_PROPERTY_SCHME(A, "A"),
-    DEFINE_PROPERTY_SCHME(a, "a"),
-    DEFINE_PROPERTY_SCHME(b, "b")
+    PROPERTY_SCHME(A, "A"),
+    PROPERTY_SCHME(a, "a"),
+    PROPERTY_SCHME(b, "b")
   )
 };
 
+bool operator==(const Test& lhs, const Test& rhs) {
+  return lhs.a == rhs.a && 
+         lhs.A == rhs.A && 
+         lhs.b.a == rhs.b.a;
+}
+
+template<>
+struct std::hash<Test>
+{
+  std::size_t operator()(const Test& p) const noexcept
+  {
+    return std::hash<int>()(p.a) ^ 
+          std::hash<double>()(p.A) ^ 
+          std::hash<int>()(p.b.a);
+  }
+};
+
 int main() {
+#if 1
   std::fstream fs;
   fs.open("test.json", std::ios::in);
   nlohmann::json data;
@@ -53,30 +71,51 @@ int main() {
   auto test_struct_json_str = nlohmann::to_string(test_struct_json);
   std::cout << "TEST STR2: " << test_struct_json_str << std::endl;
 
+  std::vector<Test> vec{
+    { 1, 2.3f , { 500 } },
+    { 3, 2.3f , { 600 } },
+  };
+
+  auto vec_json = seeker::ToJson(vec);
+  auto vec_json_str = nlohmann::to_string(vec_json);
+  std::cout << "VEC STR1: " << vec_json_str << std::endl;
+  auto json_vec = seeker::FromJson<std::vector<Test> >(vec_json);
+  auto json_vec_json = seeker::ToJson(json_vec);
+  auto json_vec_json_str = nlohmann::to_string(json_vec_json);
+  std::cout << "VEC STR2: " << json_vec_json_str << std::endl;
+
+  std::unordered_set<Test> set {
+    { 11, 12.3f , { 5100 } },
+    { 31, 13.3f , { 6100 } },
+  };
+
+  auto set_json = seeker::ToJson(set);
+  auto set_json_str = nlohmann::to_string(set_json);
+  std::cout << "SET STR1: " << set_json_str << std::endl;
+  auto json_set = seeker::FromJson<std::unordered_set<Test>>(set_json);
+  auto json_set_json = seeker::ToJson(json_set);
+  auto json_set_json_str = nlohmann::to_string(json_set_json);
+  std::cout << "SET STR2: " << json_set_json_str << std::endl;
+
+  std::unordered_map<std::string, Test> map {
+    {"A", { 11, 12.3f , { 5100 } }},
+    {"B", { 31, 13.3f , { 6100 } }},
+  };
+  
+  auto map_json = seeker::ToJson(map);
+  auto map_json_str = nlohmann::to_string(map_json);
+  std::cout << "MAP STR1: " << map_json_str << std::endl;
+  auto json_map = seeker::FromJson<std::unordered_map<std::string, Test>>(map_json);
+  auto json_map_json = seeker::ToJson(json_map);
+  auto json_map_json_str = nlohmann::to_string(json_map_json);
+  std::cout << "MAP STR2: " << json_map_json_str << std::endl;
+  
   TestB testb;
   testb.a = 2;
   seeker::TupleForEach(testb.Properties, [&](const auto& e){
     std::cout << "AA1: " << testb.*(e.Member) << std::endl;
   });
-
-  auto i = seeker::Transfer<int>::Convert(data["int"]);
-  std::cout << "res: " << i << std::endl;
-  auto json_i = seeker::Transfer<int>::Serialize(i);
-  std::cout << "json_res: " << nlohmann::to_string(json_i) << std::endl;
-  
-  auto obj = seeker::Transfer<std::unordered_map<std::string, std::string> >::Convert(data["object"]);
-  for (auto &e : obj) {
-    std::cout << "obj(" << e.first << ", " << e.second << ") " << std::endl;
-  }
-  auto json_obj = seeker::Transfer<std::unordered_map<std::string, std::string> >::Serialize(obj);
-  std::cout << "json_obj: " << nlohmann::to_string(json_obj) << std::endl;
-
-  auto set = seeker::Transfer<std::unordered_set<int> >::Convert(data["set"]);
-  for (auto &e : set) {
-    std::cout << "set(" << e << ") " << std::endl;
-  }
-  auto json_set = seeker::Transfer<std::unordered_set<int> >::Serialize(set);
-  std::cout << "json_set: " << nlohmann::to_string(json_set) << std::endl;
+#endif
 
 #if 0
   // Array

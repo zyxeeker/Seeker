@@ -12,7 +12,6 @@
 #include <tuple>
 #include <vector>
 #include <string>
-#include <sstream>
 #include <unordered_set>
 #include <unordered_map>
 #include <iostream>
@@ -23,7 +22,7 @@
   using ValueType = STRUCT;                                         \
   static constexpr auto Properties = std::make_tuple(__VA_ARGS__);  \
 
-#define DEFINE_PROPERTY_SCHME(NAME, DST_NAME)         \
+#define PROPERTY_SCHME(NAME, DST_NAME)         \
   seeker::CfgVarProperty(&ValueType::NAME, DST_NAME)  \
 
 namespace seeker {
@@ -52,140 +51,116 @@ constexpr void TupleForEachImpl(const Tuple& tuple, Handler&& handler,
 template <typename Tuple, typename Handler>
 constexpr void TupleForEach(const Tuple& tuple, Handler&& handler) {
   TupleForEachImpl(tuple, std::forward<Handler>(handler), 
-                   std::make_index_sequence<std::tuple_size_v<Tuple>>());
+                   std::make_index_sequence<std::tuple_size_v<Tuple> >());
 }
 
 template <typename T>
-nlohmann::json ToJson(T& value) {
-  nlohmann::json json;
+struct ToJsonImpl {
+  nlohmann::json operator()(const T& value) {
+    nlohmann::json json;
     TupleForEach(value.Properties, [&](const auto e) {
-    using ValueType = typename decltype(e)::Type;
-    if constexpr (std::is_class<ValueType>::value) {
-      json[e.Name] = ToJson<ValueType>(value.*(e.Member));
-    } else {
-      json[e.Name] = value.*(e.Member);
-    }
-  });
-  return json;
-}
+      using ValueType = typename decltype(e)::Type;
+      if constexpr (std::is_class<ValueType>::value) {
+        json[e.Name] = ToJsonImpl<ValueType>()(value.*(e.Member));
+      } else {
+        json[e.Name] = value.*(e.Member);
+      }
+    });
+    return std::move(json);
+  }
+};
 
-template<typename T>
-T FromJson(nlohmann::json &json) {
-  T value;
-  TupleForEach(value.Properties, [&](const auto e) {
-    using ValueType = typename decltype(e)::Type;
-    if constexpr (std::is_class<ValueType>::value) {
-      value.*(e.Member) = FromJson<ValueType>(json[e.Name]);
-    } else {
-      value.*(e.Member) = ((nlohmann::json&)json[e.Name]).get<ValueType>();
+template <typename T>
+struct ToJsonImpl<std::vector<T> > {
+  nlohmann::json operator()(const std::vector<T>& value) {
+    nlohmann::json json;
+    for (auto& i : value) {
+      json.push_back(std::move(ToJsonImpl<T>()(i)));
     }
-  });
-  return value;
+    return std::move(json);
+  }
+};
+
+template <typename T>
+struct ToJsonImpl<std::unordered_set<T> > {
+  nlohmann::json operator()(const std::unordered_set<T>& value) {
+    nlohmann::json json;
+    for (auto& i : value) {
+      json.push_back(std::move(ToJsonImpl<T>()(i)));
+    }
+    return std::move(json);
+  }
+};
+
+template <typename T>
+struct ToJsonImpl<std::unordered_map<std::string, T> > {
+  nlohmann::json operator()(const std::unordered_map<std::string, T>& value) {
+    nlohmann::json json;
+    for (auto& i : value) {
+      json[i.first] = std::move(ToJsonImpl<T>()(i.second));
+    }
+    return std::move(json);
+  }
+};
+
+template <typename T>
+nlohmann::json ToJson(const T& value) {
+  return ToJsonImpl<T>()(value);
 }
 
 template <typename T>
-class Transfer {
- public:
-  static T Convert(const nlohmann::json& value) {
-    T element;
-    try {
-      element = value.get<T>();
-    } catch (nlohmann::json::exception ex) {
-      std::cout << "bad convert: " << ex.what() << std::endl;
-    }
-    return std::move(element);
-  }
-  static nlohmann::json Serialize(const T& element) {
-    try {
-      nlohmann::json value(element);
-      return std::move(value);
-    } catch (nlohmann::json::exception ex) {
-      std::cout << "bad serialize: " << ex.what() << std::endl;
-    }
-    return {};
+struct FromJsonImpl {
+  T operator()(const nlohmann::json& json) {
+    T value;
+    TupleForEach(value.Properties, [&](const auto e) {
+      using ValueType = typename decltype(e)::Type;
+      if constexpr (std::is_class<ValueType>::value) {
+        value.*(e.Member) = FromJsonImpl<ValueType>()(json[e.Name]);
+      } else {
+        value.*(e.Member) = ((nlohmann::json&)json[e.Name]).get<ValueType>();
+      }
+    });
+    return std::move(value);
   }
 };
 
-template <typename U>
-class Transfer<std::vector<U> > {
- public:
-  static std::vector<U> Convert(const nlohmann::json& value) {
-    std::vector<U> element;
-    try {
-      for (auto &i : value) {
-        element.push_back(Transfer<U>::Convert(i));
-      }
-    } catch (nlohmann::json::exception ex) {
-      std::cout << "bad convert: " << ex.what() << std::endl;
-    }
-    return std::move(element);
-  }
-  static nlohmann::json Serialize(const std::vector<U>& element) {
-    nlohmann::json value;
-    for (auto &i : element) {
-      try {
-        value.push_back(Transfer<U>::Serialize(i));
-      } catch (nlohmann::json::exception ex) {
-        std::cout << "bad serialize: " << ex.what() << std::endl;
-      }
+template <typename T>
+struct FromJsonImpl<std::vector<T> > {
+  std::vector<T> operator()(const nlohmann::json& json) {
+    std::vector<T> value;
+    for (auto& i : json) {
+      value.push_back(std::move(FromJsonImpl<T>()(i)));
     }
     return std::move(value);
   }
 };
 
-template <typename U>
-class Transfer<std::unordered_map<std::string, U> > {
- public:
-  static std::unordered_map<std::string, U> Convert(const nlohmann::json& value) {
-    std::unordered_map<std::string, U> element;
-    try {
-      for (auto &i : value.items()) {
-        element.insert({ i.key(), Transfer<U>::Convert(i.value()) });
-      }
-    } catch (nlohmann::json::exception ex) {
-      std::cout << "bad convert: " << ex.what() << std::endl;
-    }
-    return std::move(element);
-  }
-  static nlohmann::json Serialize(const std::unordered_map<std::string, U>& element) {
-    nlohmann::json value;
-    for (auto &i : element) {
-      try {
-        value[i.first] = Transfer<U>::Serialize(i.second);
-      } catch (nlohmann::json::exception ex) {
-        std::cout << "bad serialize: " << ex.what() << std::endl;
-      }
+template <typename T>
+struct FromJsonImpl<std::unordered_set<T> > {
+  std::unordered_set<T> operator()(const nlohmann::json& json) {
+    std::unordered_set<T> value;
+    for (auto& i : json) {
+      value.insert(std::move(FromJsonImpl<T>()(i)));
     }
     return std::move(value);
   }
 };
 
-template <typename U>
-class Transfer<std::unordered_set<U> > {
- public:
-  static std::unordered_set<U> Convert(const nlohmann::json& value) {
-    std::unordered_set<U> element;
-    try {
-      for (auto &i : value) {
-        element.insert(Transfer<U>::Convert(i));
-      }
-    } catch (nlohmann::json::exception ex) {
-      std::cout << "bad convert: " << ex.what() << std::endl;
-    }
-    return std::move(element);
-  }
-  static nlohmann::json Serialize(const std::unordered_set<U>& element) {
-    nlohmann::json value;
-    for (auto &i : element) {
-      try {
-        value.push_back(Transfer<U>::Serialize(i));
-      } catch (nlohmann::json::exception ex) {
-        std::cout << "bad serialize: " << ex.what() << std::endl;
-      }
+template <typename T>
+struct FromJsonImpl<std::unordered_map<std::string, T> > {
+  std::unordered_map<std::string, T> operator()(const nlohmann::json& json) {
+    std::unordered_map<std::string, T> value;
+    for (auto& i : json.items()) {
+      value.insert({ i.key(), FromJsonImpl<T>()(i.value()) });
     }
     return std::move(value);
   }
 };
+
+template <typename T>
+T FromJson(const nlohmann::json& json) {
+  return FromJsonImpl<T>()(json);
+}
 
 } // namespace seeker
 
