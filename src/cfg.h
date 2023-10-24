@@ -9,6 +9,13 @@
 #ifndef __SEEKER_SRC_CFG__
 #define __SEEKER_SRC_CFG__
 
+#include <mutex>
+#include <thread>
+#include <memory>
+#include <condition_variable>
+
+#include <nlohmann/json.hpp>
+
 #include "../include/cfg.h"
 #include "log.h"
 
@@ -108,6 +115,55 @@ class Manager::Impl {
 };
 
 } // cfg
+
+class CfgFileMgr {
+ public:
+  using Ptr = std::shared_ptr<CfgFileMgr>;
+  CfgFileMgr(const std::string& path);
+  ~CfgFileMgr();
+
+  bool ReadFile();
+  void WriteFile();
+
+  inline nlohmann::json& data() {
+    return data_;
+  }
+
+ private:
+  std::string path_;
+  nlohmann::json data_;
+};
+
+class CfgMgr {
+ public:
+  static CfgMgr& GetInstance() {
+    static CfgMgr inst;
+    return inst;
+  }
+
+  bool Start(const std::string path);
+  void Register(const std::string& key, 
+                std::function<void(nlohmann::json)> cb);
+  void Unregister(const std::string& key);
+  nlohmann::json Query(const std::string& key);
+  void Update(const std::string& key, const nlohmann::json& json);
+  void Notify(const std::string& key, const nlohmann::json& json);
+
+ private:
+  CfgMgr();
+  ~CfgMgr();
+
+ private:
+  std::mutex callback_ops_mutex_;
+  std::mutex data_ops_mutex_;
+
+  std::unordered_map<std::string, 
+                     std::function<void(nlohmann::json)> > callbacks_;
+  CfgFileMgr::Ptr file_mgr_;
+
+  DO_NOT_ASSIGN_AND_COPY(CfgMgr)
+};
+
 } // seeker
 
 #endif // __SEEKER_SRC_CFG__

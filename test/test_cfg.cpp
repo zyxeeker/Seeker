@@ -1,4 +1,5 @@
 #include <fstream>
+#include <set>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -42,13 +43,56 @@ struct std::hash<Test>
   std::size_t operator()(const Test& p) const noexcept
   {
     return std::hash<int>()(p.a) ^ 
-          std::hash<double>()(p.A) ^ 
-          std::hash<int>()(p.b.a);
+           std::hash<double>()(p.A) ^ 
+           std::hash<int>()(p.b.a);
+  }
+};
+
+class TA {
+ public:
+  TA() {
+    std::function<void(TestB)> func = std::bind(&TA::OnChanged, this, std::placeholders::_1);
+    std::function<void(TestB)> func1 = std::bind(&TA::OnChanged1, this, std::placeholders::_1);
+    seeker::RegisterCfgChangedEvent<TestB>("A1", func);
+    seeker::RegisterCfgChangedEvent<TestB>("B1", func1);
+  }
+  void OnChanged(TestB t) {
+    std::cout << "A1 CHANGED: " << t.a << std::endl;
+  }
+  void OnChanged1(TestB t) {
+    std::cout << "B1 CHANGED1: " << t.a << std::endl;
+  }
+};
+
+class TB {
+ public:
+  TB() {
+    std::function<void(TestB)> func = std::bind(&TB::OnChanged, this, std::placeholders::_1);
+    std::function<void(TestB)> func1 = std::bind(&TB::OnChanged1, this, std::placeholders::_1);
+    seeker::RegisterCfgChangedEvent<TestB>("A", func);
+    seeker::RegisterCfgChangedEvent<TestB>("B", func1);
+  }
+  void OnChanged(TestB t) {
+    std::cout << "A CHANGED: " << t.a << std::endl;
+  }
+  void OnChanged1(TestB t) {
+    std::cout << "B CHANGED1: " << t.a << std::endl;
   }
 };
 
 int main() {
-#if 1
+  TA ta;
+  TB tb;
+  std::cout << std::boolalpha << seeker::InitializeCfg("test.json") << std::endl;
+  auto test_json = seeker::QueryCfg<TestB>("test");
+  std::cout <<test_json.a << std::endl;
+  test_json.a = 2;
+  seeker::UpdateCfg("test", test_json);
+  test_json.a = 3;
+  seeker::UpdateCfg("test", test_json);
+  test_json.a = 4;
+  seeker::UpdateCfg("test", test_json);
+#if 0
   std::fstream fs;
   fs.open("test.json", std::ios::in);
   nlohmann::json data;
@@ -110,11 +154,11 @@ int main() {
   auto json_map_json_str = nlohmann::to_string(json_map_json);
   std::cout << "MAP STR2: " << json_map_json_str << std::endl;
   
-  TestB testb;
-  testb.a = 2;
-  seeker::TupleForEach(testb.Properties, [&](const auto& e){
-    std::cout << "AA1: " << testb.*(e.Member) << std::endl;
-  });
+  // TestB testb;
+  // testb.a = 2;
+  // seeker::TupleForEach(testb.Properties, [&](const auto& e){
+  //   std::cout << "AA1: " << testb.*(e.Member) << std::endl;
+  // });
 #endif
 
 #if 0

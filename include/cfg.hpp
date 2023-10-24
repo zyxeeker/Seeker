@@ -9,6 +9,7 @@
 #ifndef __SEEKER_CFG_HPP__
 #define __SEEKER_CFG_HPP__
 
+#include <mutex>
 #include <tuple>
 #include <vector>
 #include <string>
@@ -160,6 +161,85 @@ struct FromJsonImpl<std::unordered_map<std::string, T> > {
 template <typename T>
 T FromJson(const nlohmann::json& json) {
   return FromJsonImpl<T>()(json);
+}
+
+template <typename T>
+class CfgVar {
+ public:
+  static CfgVar<T>& Get() {
+    static CfgVar<T> _inst;
+    return _inst;
+  }
+  void AddCallBack(std::function<void(T)> cb) {
+    std::lock_guard<std::mutex> l(mutex_);
+    lists_.push_back(cb);
+  }
+  void RemoveCallBack(std::function<void(T)> cb) {
+    std::lock_guard<std::mutex> l(mutex_);
+    for (auto i : lists_) {
+      if ((*i) == cb) {
+        lists_.erase(i);
+        break;
+      }
+    }
+  }
+  void Update(const T& t) {
+    std::lock_guard<std::mutex> l(mutex_);
+    for (auto &i : lists_) {
+      (i)(t);
+    }
+  }
+  std::function<void(nlohmann::json)> GetNotifyCallBack() {
+    std::function<void(nlohmann::json)> func = 
+        std::bind(&seeker::CfgVar<T>::Notify, this, std::placeholders::_1);
+    return func;  
+  }
+ protected:
+  void Notify(nlohmann::json json) {
+    T value = FromJson<T>(json);
+    {
+      std::lock_guard<std::mutex> l(mutex_); 
+      for (auto &i : lists_) {
+        (i)(value);
+      }
+    }
+  }
+ private:
+  std::mutex mutex_;
+  std::vector<std::function<void(T)> > callbacks_;
+};
+
+bool InitializeCfg(const std::string& cfg_path);
+
+void RegisterCfgChangedEvent(const std::string& key, 
+                             std::function<void(nlohmann::json)> cb);
+
+template <typename T>
+void RegisterCfgChangedEvent(const std::string& key, 
+                             std::function<void(T)> cb) {
+  seeker::CfgVar<T>::Get().AddCallBack(cb);
+  RegisterCfgChangedEvent(key, seeker::CfgVar<T>::Get().GetNotifyCallBack());
+}
+
+template <typename T>
+void UnRegisterCfgChangedEvent(std::function<void(T)> cb) {
+  seeker::CfgVar<T>::Get().RemoveCallBack(cb);
+}
+
+nlohmann::json QueryCfg(const std::string& key);
+
+template <typename T>
+T QueryCfg(const std::string& key) {
+  nlohmann::json json = QueryCfg(key);
+  return FromJson<T>(json);
+}
+
+void UpdateCfg(const std::string& key, const nlohmann::json& json);
+
+template <typename T>
+void UpdateCfg(const std::string& key, const T& value) {
+  UpdateCfg(key, ToJson(value));
+  seeker::CfgVar<T>::Get().Update(value);
 }
 
 } // namespace seeker
