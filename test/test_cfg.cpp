@@ -81,11 +81,17 @@ class TB {
 };
 
 int main() {
+  std::cout << std::boolalpha << seeker::InitializeCfg("test.json") << std::endl;
+  
+  auto int_json = seeker::QueryCfg<int>("int");
+  std::cout << "INT: " << int_json << std::endl;
+  int_json = 200;
+  seeker::UpdateCfg("int", int_json);
+
   TA ta;
   TB tb;
-  std::cout << std::boolalpha << seeker::InitializeCfg("test.json") << std::endl;
   auto test_json = seeker::QueryCfg<TestB>("test");
-  std::cout <<test_json.a << std::endl;
+  std::cout << "STRUCT TESTB a:" << test_json.a << std::endl;
   test_json.a = 2;
   seeker::UpdateCfg("test", test_json);
   test_json.a = 3;

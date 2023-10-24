@@ -59,14 +59,18 @@ template <typename T>
 struct ToJsonImpl {
   nlohmann::json operator()(const T& value) {
     nlohmann::json json;
-    TupleForEach(value.Properties, [&](const auto e) {
-      using ValueType = typename decltype(e)::Type;
-      if constexpr (std::is_class<ValueType>::value) {
-        json[e.Name] = ToJsonImpl<ValueType>()(value.*(e.Member));
-      } else {
-        json[e.Name] = value.*(e.Member);
-      }
-    });
+    if constexpr (std::is_class<T>::value) {
+      TupleForEach(value.Properties, [&](const auto e) {
+        using ValueType = typename decltype(e)::Type;
+        if constexpr (std::is_class<ValueType>::value) {
+          json[e.Name] = ToJsonImpl<ValueType>()(value.*(e.Member));
+        } else {
+          json[e.Name] = value.*(e.Member);
+        }
+      });
+    } else {
+      json = nlohmann::json(value);
+    }
     return std::move(json);
   }
 };
@@ -113,14 +117,18 @@ template <typename T>
 struct FromJsonImpl {
   T operator()(const nlohmann::json& json) {
     T value;
-    TupleForEach(value.Properties, [&](const auto e) {
-      using ValueType = typename decltype(e)::Type;
-      if constexpr (std::is_class<ValueType>::value) {
-        value.*(e.Member) = FromJsonImpl<ValueType>()(json[e.Name]);
-      } else {
-        value.*(e.Member) = ((nlohmann::json&)json[e.Name]).get<ValueType>();
-      }
-    });
+    if constexpr (std::is_class<T>::value) {
+      TupleForEach(value.Properties, [&](const auto e) {
+        using ValueType = typename decltype(e)::Type;
+        if constexpr (std::is_class<ValueType>::value) {
+          value.*(e.Member) = FromJsonImpl<ValueType>()(json[e.Name]);
+        } else {
+          value.*(e.Member) = ((nlohmann::json&)json[e.Name]).get<ValueType>();
+        }
+      });
+    } else {
+      value = json.get<T>();
+    }
     return std::move(value);
   }
 };
