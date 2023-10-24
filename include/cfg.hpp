@@ -172,20 +172,20 @@ class CfgVar {
   }
   void AddCallBack(std::function<void(T)> cb) {
     std::lock_guard<std::mutex> l(mutex_);
-    lists_.push_back(cb);
+    callbacks_.push_back(cb);
   }
   void RemoveCallBack(std::function<void(T)> cb) {
     std::lock_guard<std::mutex> l(mutex_);
-    for (auto i : lists_) {
+    for (auto i : callbacks_) {
       if ((*i) == cb) {
-        lists_.erase(i);
+        callbacks_.erase(i);
         break;
       }
     }
   }
   void Update(const T& t) {
     std::lock_guard<std::mutex> l(mutex_);
-    for (auto &i : lists_) {
+    for (auto &i : callbacks_) {
       (i)(t);
     }
   }
@@ -199,7 +199,7 @@ class CfgVar {
     T value = FromJson<T>(json);
     {
       std::lock_guard<std::mutex> l(mutex_); 
-      for (auto &i : lists_) {
+      for (auto &i : callbacks_) {
         (i)(value);
       }
     }
