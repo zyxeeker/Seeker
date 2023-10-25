@@ -116,24 +116,6 @@ class Manager::Impl {
 
 } // cfg
 
-class CfgFileMgr {
- public:
-  using Ptr = std::shared_ptr<CfgFileMgr>;
-  CfgFileMgr(const std::string& path);
-  ~CfgFileMgr();
-
-  bool ReadFile();
-  void WriteFile();
-
-  inline nlohmann::json& data() {
-    return data_;
-  }
-
- private:
-  std::string path_;
-  nlohmann::json data_;
-};
-
 class CfgMgr {
  public:
   static CfgMgr& GetInstance() {
@@ -153,13 +135,17 @@ class CfgMgr {
   CfgMgr();
   ~CfgMgr();
 
+  bool ReadFile();
+  void WriteFile();
+
  private:
   std::mutex callback_ops_mutex_;
   std::mutex data_ops_mutex_;
 
+  std::string path_;
+  nlohmann::json data_;
   std::unordered_map<std::string, 
                      std::function<void(nlohmann::json)> > callbacks_;
-  CfgFileMgr::Ptr file_mgr_;
 
   DO_NOT_ASSIGN_AND_COPY(CfgMgr)
 };

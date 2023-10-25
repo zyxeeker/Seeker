@@ -132,47 +132,15 @@ JsonDataPtr Manager::GetCfgDataPtr() {
 
 } // cfg
 
-CfgFileMgr::CfgFileMgr(const std::string& path)
-    : path_(path) {
-}
+CfgMgr::CfgMgr() = default;
 
-CfgFileMgr::~CfgFileMgr() {
+CfgMgr::~CfgMgr() {
   WriteFile();
 }
 
-bool CfgFileMgr::ReadFile() {
-  std::ifstream ifs;
-  ifs.open(path_);
-  if (ifs.fail()) {
-    return false;
-  }
-  try {
-    data_ = nlohmann::json::parse(ifs);
-  } catch(nlohmann::json::exception ex) {
-    std::cout << ex.what() << std::endl;
-    ifs.close();
-    return false;
-  }
-  return true;
-}
-
-void CfgFileMgr::WriteFile() {
-  std::ofstream ofs;
-  ofs.open(path_, std::ios::trunc);
-  if (!ofs.good()) {
-    return;
-  }
-  ofs << data_;
-  ofs.close();
-}
-
-CfgMgr::CfgMgr() = default;
-
-CfgMgr::~CfgMgr() = default;
-
 bool CfgMgr::Start(const std::string path) {
-  file_mgr_ = std::make_shared<CfgFileMgr>(path);
-  return file_mgr_->ReadFile();
+  path_ = path;
+  return ReadFile();
 }
 
 void CfgMgr::Register(const std::string& key, 
@@ -188,14 +156,14 @@ void CfgMgr::Unregister(const std::string& key) {
 
 nlohmann::json CfgMgr::Query(const std::string& key) {
   std::lock_guard<std::mutex> l(data_ops_mutex_);
-  auto res = file_mgr_->data()[key];
+  auto res = data_[key];
   return std::move(res);
 }
 
 void CfgMgr::Update(const std::string& key, const nlohmann::json& json) {
   std::lock_guard<std::mutex> l(data_ops_mutex_);
-  file_mgr_->data()[key] = json;
-  file_mgr_->WriteFile();
+  data_[key] = json;
+  WriteFile();
   // std::cout << file_mgr_->data() << std::endl;
 }
 
@@ -205,6 +173,32 @@ void CfgMgr::Notify(const std::string& key, const nlohmann::json& json) {
   if (e) {
     (e)(json);
   }
+}
+
+bool CfgMgr::ReadFile() {
+  std::ifstream ifs;
+  ifs.open(path_);
+  if (ifs.fail()) {
+    return false;
+  }
+  try {
+    data_ = nlohmann::json::parse(ifs);
+  } catch(nlohmann::json::exception ex) {
+    std::cout << ex.what() << std::endl;
+    ifs.close();
+    return false;
+  }
+  return true;
+}
+
+void CfgMgr::WriteFile() {
+  std::ofstream ofs;
+  ofs.open(path_, std::ios::trunc);
+  if (!ofs.good()) {
+    return;
+  }
+  ofs << data_;
+  ofs.close();
 }
 
 bool InitializeCfg(const std::string& cfg_path) {
