@@ -3,15 +3,18 @@ project(Seeker)
 
 set(CMAKE_CXX_FLAGS -pthread)
 
+set(ENABLE_MONGOOSE ON)
 
 # 3rd dir
 set(3RD ${CMAKE_SOURCE_DIR}/3rd)
 # nlohmann json
 add_subdirectory(${3RD}/nlohmann)
+# mongoose(add for test)
+add_subdirectory(${3RD}/mongoose)
 
 include_directories(include src)
 
-link_libraries(Nlohmann)
+link_libraries(Nlohmann Mongoose)
 
 add_subdirectory(src)
 add_subdirectory(test)
