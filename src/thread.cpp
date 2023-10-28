@@ -7,7 +7,10 @@
  */
 
 #include "thread.h"
+
 #include <unistd.h>
+#include <exception>
+
 #include "log.h"
 
 #define DEFAULT_THREAD_NAME    "UNKNOWN"
@@ -328,4 +331,96 @@ void Sem::Destory() {
 
 //// Semaphore End
 } // th
+
+ThreadPool::Impl::Impl(size_t thread_num)
+    : started_(false), 
+      thread_num_(thread_num) {}
+
+ThreadPool::Impl::~Impl() = default;
+
+bool ThreadPool::Impl::Start() {
+  std::lock_guard<std::mutex> l(mutex_);
+  if (started_) {
+    return true;
+  }
+  started_ = true;
+  std::atomic<size_t> count{0};
+  for (auto i = 0; i < thread_num_; i++)  {
+    try {
+      auto thread = std::thread([&](){
+        count.fetch_add(1);
+        Loop();
+      });
+      threads_.push_back(std::move(thread));
+    } catch(const std::system_error& e) {
+      std::cout << "Caught system_error with code "
+                   "[" << e.code() << "] meaning "
+                   "[" << e.what() << "]\n";
+      --thread_num_;
+    }
+  }
+  while (count.load() != thread_num_) {}
+  return true;
+}
+
+void ThreadPool::Impl::Stop() {
+  {
+    std::lock_guard<std::mutex> l(mutex_);
+    started_ = false;
+    cv_.notify_all();
+  }
+
+  int index = 0;
+  for (auto& thread : threads_) {
+    if (thread.joinable()) {
+      thread.join();
+    }
+  }
+  std::lock_guard<std::mutex> l(mutex_);
+  threads_.clear();
+}
+
+void ThreadPool::Impl::PushTask(Task::Ptr&& task) {
+  std::lock_guard<std::mutex> l(mutex_);
+  tasks_.push(std::move(task));
+  cv_.notify_one();
+}
+
+void ThreadPool::Impl::Loop() {
+  while (started_) {
+    std::unique_lock<std::mutex> cv_l(mutex_);
+    cv_.wait(cv_l, [&](){ return !(tasks_.empty() && started_); });
+
+    if (tasks_.empty() || !started_) {
+      continue;
+    }
+
+    {
+      auto& task = tasks_.front();
+      if (!task) {
+        continue;
+      }
+      task->Func();
+      tasks_.pop();
+    }
+  }
+}
+
+ThreadPool::ThreadPool(size_t thread_num)
+    : impl_(std::make_unique<ThreadPool::Impl>(thread_num)) {}
+
+ThreadPool::~ThreadPool() = default;
+
+bool ThreadPool::Start() {
+  return impl_->Start();
+}
+
+void ThreadPool::Stop() {
+  impl_->Stop();
+}
+
+void ThreadPool::PushTask(ThreadPool::Task::Ptr&& task_ptr) {
+  impl_->PushTask(std::move(task_ptr));
+}
+
 } // seeker

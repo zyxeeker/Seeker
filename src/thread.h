@@ -6,13 +6,22 @@
  * @date 2023-06-09
  */
 
-#ifndef _SEEKER_SRC_TH_H_
-#define _SEEKER_SRC_TH_H_
+#ifndef _SEEKER_SRC_THREAD_H_
+#define _SEEKER_SRC_THREAD_H_
+
+#include <queue>
+#include <vector>
+#include <mutex>
+#include <atomic>
+#include <thread>
+#include <future>
+#include <condition_variable>
 
 #include <pthread.h>
 #include <semaphore.h>
 #include "../include/thread.h"
 #include "../include/exception.h"
+#include "../include/thread.hpp"
 
 namespace seeker {
 namespace th {
@@ -128,6 +137,28 @@ struct Sem::Impl {
 };
 
 } // th
-} // seeker
 
-#endif // _SEEKER_SRC_TH_H_
+class ThreadPool::Impl {
+ public:
+  Impl(size_t thread_num);
+  ~Impl();
+
+  bool Start();
+  void Stop();
+  void PushTask(Task::Ptr&& task);
+  
+ private:
+  void Loop();
+
+ private:
+  bool started_;
+  size_t thread_num_;
+  std::mutex mutex_;
+  std::condition_variable cv_;
+  std::queue<Task::Ptr> tasks_;
+  std::vector<std::thread> threads_;  
+};
+
+} // namespace seeker
+
+#endif // _SEEKER_SRC_THREAD_H_
