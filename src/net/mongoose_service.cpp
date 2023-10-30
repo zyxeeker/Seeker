@@ -6,21 +6,21 @@ namespace seeker {
 
 #ifdef MONGOOSE
 
-HTTP_METHOD GetMethod(struct mg_str* src) {
+IHttpService::METHOD GetMethod(struct mg_str* src) {
 #define XX(METHOD_STR, METHOD)              \
   if (mg_vcasecmp(src, METHOD_STR) == 0) {  \
     return METHOD;                          \
   }                                         \
 
-  XX("GET", GET)
-  XX("POST", POST)
+  XX("GET", IHttpService::GET)
+  XX("POST", IHttpService::POST)
 #undef XX
 
-  return UNKNOWN;
+  return IHttpService::UNKNOWN;
 }
 
-MongooseService::MongooseService(uint16_t port = 8080)
-    : port_(port) {}
+MongooseService::MongooseService(uint16_t port)
+    : base::HttpServiceBase(port) {}
 
 MongooseService::~MongooseService() = default;
 
@@ -32,7 +32,7 @@ bool MongooseService::Start() {
   mg_mgr_init(&mgr_);
   // address
   std::string address = "0.0.0.0:";
-  address.append(std::to_string(port_));
+  address.append(std::to_string(port()));
   // listen
   auto conn = mg_http_listen(&mgr_, address.c_str(), OnMsgCallBack, this);
   if (conn == nullptr) {
@@ -68,24 +68,26 @@ void MongooseService::OnMsgCallBack(struct mg_connection* conn, int ev,
       return;
     }
     auto url = std::string(msg->uri.ptr + 1, msg->uri.len - 1);
-    // judge router exist, reduce usage
-    if (th->QueryRouter(url)) {
-      HttpReqMsgMeta msg_meta {};
-      msg_meta.Method = GetMethod(&(msg->method));
-      msg_meta.Url = url;
-      for (int i = 0; i < MG_MAX_HTTP_HEADERS; i++) {
-        const auto header_ptr = msg->headers + i;
-        if (header_ptr->name.len == 0) {
-          break;
-        }
-        msg_meta.Headers.push_back({ 
-          std::string(header_ptr->name.ptr, header_ptr->name.len), 
-          std::string(header_ptr->value.ptr, header_ptr->value.len) 
-        });
+  
+    ReqMsgMeta req_meta {};
+    RespMsgMeta resp_meta {};
+    req_meta.Method = GetMethod(&(msg->method));
+    req_meta.Url = url;
+    for (int i = 0; i < MG_MAX_HTTP_HEADERS; i++) {
+      const auto header_ptr = msg->headers + i;
+      if (header_ptr->name.len == 0) {
+        break;
       }
-      msg_meta.Content = std::string(msg->body.ptr, msg->body.len);
-      auto res = th->UpdateHttpMsg(msg_meta);
-      mg_http_reply(conn, 200, "Content-Type: text/plain\r\n", res.Content.c_str());
+      req_meta.Complex.Headers.push_back({ 
+        std::string(header_ptr->name.ptr, header_ptr->name.len), 
+        std::string(header_ptr->value.ptr, header_ptr->value.len) 
+      });
+    }
+    
+    req_meta.Complex.Content = std::string(msg->body.ptr, msg->body.len);
+
+    if (th->CallRouter(url, req_meta, resp_meta)) {
+      mg_http_reply(conn, 200, "Content-Type: text/plain\r\n", resp_meta.Complex.Content.c_str());
     } else {
       mg_http_reply(conn, 404, "Content-Type: text/plain\r\n", "Not Found");
     }

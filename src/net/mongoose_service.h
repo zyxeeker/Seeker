@@ -2,7 +2,7 @@
  * @Author: zyxeeker zyxeeker@gmail.com
  * @Date: 2023-10-25 12:59:51
  * @LastEditors: zyxeeker zyxeeker@gmail.com
- * @LastEditTime: 2023-10-25 18:30:48
+ * @LastEditTime: 2023-10-30 16:41:33
  * @Description: 
  */
 
@@ -27,7 +27,7 @@
 namespace seeker {
 
 #ifdef MONGOOSE
-class MongooseService : public base::HttpService {
+class MongooseService : public base::HttpServiceBase {
  public:
   MongooseService(uint16_t port);
   ~MongooseService();
@@ -43,7 +43,6 @@ class MongooseService : public base::HttpService {
  private:
   bool start_ = false;
 
-  std::uint16_t port_;
   struct mg_mgr mgr_;
 
   std::thread msg_loop_;

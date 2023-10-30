@@ -2,7 +2,7 @@
  * @Author: zyxeeker zyxeeker@gmail.com
  * @Date: 2023-10-25 10:02:24
  * @LastEditors: zyxeeker zyxeeker@gmail.com
- * @LastEditTime: 2023-10-25 18:51:03
+ * @LastEditTime: 2023-10-30 18:07:42
  * @Description: 网络接口具体实现
  */
 
@@ -11,7 +11,6 @@
 
 #include <mutex>
 #include <memory>
-#include <string>
 #include <unordered_map>
 
 #include "net.hpp"
@@ -20,25 +19,31 @@ namespace seeker {
 
 class NetServiceMgr {
  public:
-  using Ptr = std::shared_ptr<NetServiceMgr>;
-  using WPtr = std::weak_ptr<NetServiceMgr>;
+  enum TYPE {
+    SERVICE_HTTP,
+    // TODO:Support More...
+  };
 
-  static WPtr GetInstance() {
-    if (inst_ == nullptr) {
-      inst_ = std::make_shared<NetServiceMgr>();
-    }
-    return inst_;
+  struct ServiceMeta {
+    INetService::Ptr Ptr;
+    TYPE Type;
+  };
+
+ public:
+  inline static NetServiceMgr& GetInstance() {
+    static NetServiceMgr inst;
+    return inst;
   }
 
-  bool RegisterService(const std::string& name, INetService::Ptr ptr);
+  bool RegisterService(const std::string& name, TYPE type, INetService::Ptr ptr);
   void UnregisterService(const std::string& name);
-  INetService::WPtr GetService(const std::string& name);
 
+  inline const std::unordered_map<std::string, ServiceMeta>& service() const {
+    return service_;
+  }
  private:
-  static Ptr inst_;
-
   std::mutex mutex_;
-  std::unordered_map<std::string, INetService::Ptr> service_;
+  std::unordered_map<std::string, ServiceMeta> service_;
 };
 
 } // namespace seeker

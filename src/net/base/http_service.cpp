@@ -5,29 +5,60 @@
 namespace seeker {
 namespace base {
 
-bool HttpService::RegisterRouter(const std::string& name, HttpMsgCallBack cb) {
-  std::lock_guard<std::mutex> l(router_ops_mutex_);
-  return router_.insert({ name, cb }).second;
+HttpServiceBase::HttpServiceBase(uint16_t port)
+    : port_(port) {}
+
+HttpServiceBase::~HttpServiceBase() = default;
+
+bool HttpServiceBase::RegisterRouter(const std::string& name, MsgCallBack cb) {
+  std::lock_guard<std::mutex> l(mutex_);
+  if (router_.find(name) != router_.end()) {
+    return false;
+  }
+  router_[name] = RouterMeta {
+    true,
+    std::move(cb)
+  };
+  return true;
 }
 
-void HttpService::UnregisterRouter(const std::string& name) {
-  std::lock_guard<std::mutex> l(router_ops_mutex_);
+void HttpServiceBase::UnregisterRouter(const std::string& name) {
+  std::lock_guard<std::mutex> l(mutex_);
   router_.erase(name);
 }
 
-HttpRespMsgMeta HttpService::UpdateHttpMsg(const HttpReqMsgMeta& msg) {
-  std::lock_guard<std::mutex> l(router_ops_mutex_);
-  auto cb = router_[msg.Url];
-  if (cb != nullptr) {
-    return cb(msg);
+bool HttpServiceBase::EnableRouter(const std::string& name) {
+  std::lock_guard<std::mutex> l(mutex_);
+  if (router_.find(name) == router_.end()) {
+    return false;
   }
-  return {};
+  router_[name].Enable = true;
+  return true;
 }
 
-bool HttpService::QueryRouter(const std::string& name) {
-  std::lock_guard<std::mutex> l(router_ops_mutex_);
-  // std::cout << "URL NAME: " << name << std::endl;
-  return router_.find(name) != router_.end();
+bool HttpServiceBase::DisableRouter(const std::string& name) {
+  std::lock_guard<std::mutex> l(mutex_);
+  if (router_.find(name) == router_.end()) {
+    return false;
+  }
+  router_[name].Enable = false;
+  return true;
+}
+
+bool HttpServiceBase::CallRouter(const std::string& name, 
+                                const ReqMsgMeta& req, 
+                                RespMsgMeta& resp) {
+  std::lock_guard<std::mutex> l(mutex_);
+  auto res = router_.find(name);
+  if (res == router_.end()) {
+    return false;
+  }
+  if (!res->second.Enable) {
+    return false;
+  }
+  auto cb = res->second.CallBack;
+  resp = cb(req);
+  return true;
 }
 
 } // namespace base
