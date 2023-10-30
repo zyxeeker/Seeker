@@ -156,8 +156,11 @@ void CfgMgr::Unregister(const std::string& key) {
 
 nlohmann::json CfgMgr::Query(const std::string& key) {
   std::lock_guard<std::mutex> l(data_ops_mutex_);
-  auto res = data_[key];
-  return std::move(res);
+  auto res = data_.find(key);
+  if (res == data_.end()) {
+    return {};
+  }
+  return res.value();
 }
 
 void CfgMgr::Update(const std::string& key, const nlohmann::json& json) {
@@ -201,22 +204,20 @@ void CfgMgr::WriteFile() {
   ofs.close();
 }
 
-bool InitializeCfg(const std::string& cfg_path) {
+bool Cfg::Init(const std::string& cfg_path) {
   return CfgMgr::GetInstance().Start(cfg_path);
 }
 
-void RegisterCfgChangedEvent(const std::string& key, 
-                             std::function<void(nlohmann::json)> cb) {
-  CfgMgr::GetInstance().Register(key, cb);
-}
-
-nlohmann::json QueryCfg(const std::string& key) {
+nlohmann::json Cfg::Query(const std::string& key) {
   return std::move(CfgMgr::GetInstance().Query(key));
 }
 
-void UpdateCfg(const std::string& key, 
-               const nlohmann::json& json) {
+void Cfg::Update(const std::string& key, const nlohmann::json& json) {
   CfgMgr::GetInstance().Update(key, json);
 }
 
-} // seeker
+void Cfg::RegisterChangedEvent(const std::string& key, JsonChangedEventCallBack cb) {
+  CfgMgr::GetInstance().Register(key, cb);
+}
+
+} // namespace seeker

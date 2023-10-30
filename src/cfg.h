@@ -1,9 +1,9 @@
-/**
- * @file cfg.h
- * @author zyxeeker (zyxeeker@gmail.com)
- * @brief 配置管理具体实现
- * @version 1.0
- * @date 2023-06-06
+/*
+ * @Author: zyxeeker zyxeeker@gmail.com
+ * @Date: 2023-06-06 11:36:44
+ * @LastEditors: zyxeeker zyxeeker@gmail.com
+ * @LastEditTime: 2023-10-26 09:27:18
+ * @Description: 配置管理具体实现
  */
 
 #ifndef __SEEKER_SRC_CFG__

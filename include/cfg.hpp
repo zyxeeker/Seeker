@@ -59,17 +59,21 @@ template <typename T>
 struct ToJsonImpl {
   nlohmann::json operator()(const T& value) {
     nlohmann::json json;
-    if constexpr (std::is_class<T>::value) {
-      TupleForEach(value.Properties, [&](const auto e) {
-        using ValueType = typename decltype(e)::Type;
-        if constexpr (std::is_class<ValueType>::value) {
-          json[e.Name] = ToJsonImpl<ValueType>()(value.*(e.Member));
-        } else {
-          json[e.Name] = value.*(e.Member);
-        }
-      });
-    } else {
-      json = nlohmann::json(value);
+    try {
+      if constexpr (std::is_class<T>::value) {
+        TupleForEach(value.Properties, [&](const auto e) {
+          using ValueType = typename decltype(e)::Type;
+          if constexpr (std::is_class<ValueType>::value) {
+            json[e.Name] = ToJsonImpl<ValueType>()(value.*(e.Member));
+          } else {
+            json[e.Name] = value.*(e.Member);
+          }
+        });
+      } else {
+        json = nlohmann::json(value);
+      }
+    } catch (...) {
+      json = nlohmann::json{};
     }
     return std::move(json);
   }
@@ -117,17 +121,21 @@ template <typename T>
 struct FromJsonImpl {
   T operator()(const nlohmann::json& json) {
     T value;
-    if constexpr (std::is_class<T>::value) {
-      TupleForEach(value.Properties, [&](const auto e) {
-        using ValueType = typename decltype(e)::Type;
-        if constexpr (std::is_class<ValueType>::value) {
-          value.*(e.Member) = FromJsonImpl<ValueType>()(json[e.Name]);
-        } else {
-          value.*(e.Member) = ((nlohmann::json&)json[e.Name]).get<ValueType>();
-        }
-      });
-    } else {
-      value = json.get<T>();
+    try {
+      if constexpr (std::is_class<T>::value) {
+        TupleForEach(value.Properties, [&](const auto e) {
+          using ValueType = typename decltype(e)::Type;
+          if constexpr (std::is_class<ValueType>::value) {
+            value.*(e.Member) = FromJsonImpl<ValueType>()(json[e.Name]);
+          } else {
+            value.*(e.Member) = ((nlohmann::json&)json[e.Name]).get<ValueType>();
+          }
+        });
+      } else {
+        value = json.get<T>();
+      }
+    } catch (...) {
+      value = T{};
     }
     return std::move(value);
   }
@@ -217,38 +225,43 @@ class CfgVar {
   std::vector<std::function<void(T)> > callbacks_;
 };
 
-bool InitializeCfg(const std::string& cfg_path);
+class Cfg {
+ public:
+  using JsonChangedEventCallBack = std::function<void(nlohmann::json)>;
+  template <typename T>
+  using TypeChangedEventCallBack = std::function<void(T)>;
 
-void RegisterCfgChangedEvent(const std::string& key, 
-                             std::function<void(nlohmann::json)> cb);
+  static bool Init(const std::string& cfg_path);
 
-template <typename T>
-void RegisterCfgChangedEvent(const std::string& key, 
-                             std::function<void(T)> cb) {
-  seeker::CfgVar<T>::Get().AddCallBack(cb);
-  RegisterCfgChangedEvent(key, seeker::CfgVar<T>::Get().GetNotifyCallBack());
-}
+  static nlohmann::json Query(const std::string& key);
 
-template <typename T>
-void UnRegisterCfgChangedEvent(std::function<void(T)> cb) {
-  seeker::CfgVar<T>::Get().RemoveCallBack(cb);
-}
+  template <typename T>
+  static T Query(const std::string& key) {
+    nlohmann::json json = Query(key);
+    return FromJson<T>(json);
+  }
 
-nlohmann::json QueryCfg(const std::string& key);
+  static void Update(const std::string& key, const nlohmann::json& json);
 
-template <typename T>
-T QueryCfg(const std::string& key) {
-  nlohmann::json json = QueryCfg(key);
-  return FromJson<T>(json);
-}
+  template <typename T>
+  static void Update(const std::string& key, const T& value) {
+    Update(key, ToJson(value));
+    seeker::CfgVar<T>::Get().Update(value);
+  }
 
-void UpdateCfg(const std::string& key, const nlohmann::json& json);
+  static void RegisterChangedEvent(const std::string& key, JsonChangedEventCallBack cb);
 
-template <typename T>
-void UpdateCfg(const std::string& key, const T& value) {
-  UpdateCfg(key, ToJson(value));
-  seeker::CfgVar<T>::Get().Update(value);
-}
+  template <typename T>
+  static void RegisterChangedEvent(const std::string& key, TypeChangedEventCallBack<T> cb) {
+    CfgVar<T>::Get().AddCallBack(cb);
+    RegisterChangedEvent(key, CfgVar<T>::Get().GetNotifyCallBack());
+  }
+
+  template <typename T>
+  static void UnRegisterChangedEvent(TypeChangedEventCallBack<T> cb) {
+    CfgVar<T>::Get().RemoveCallBack(cb);
+  }
+};
 
 } // namespace seeker
 

@@ -53,8 +53,8 @@ class TA {
   TA() {
     std::function<void(TestB)> func = std::bind(&TA::OnChanged, this, std::placeholders::_1);
     std::function<void(TestB)> func1 = std::bind(&TA::OnChanged1, this, std::placeholders::_1);
-    seeker::RegisterCfgChangedEvent<TestB>("A1", func);
-    seeker::RegisterCfgChangedEvent<TestB>("B1", func1);
+    seeker::Cfg::RegisterChangedEvent<TestB>("A1", func);
+    seeker::Cfg::RegisterChangedEvent<TestB>("B1", func1);
   }
   void OnChanged(TestB t) {
     std::cout << "A1 CHANGED: " << t.a << std::endl;
@@ -69,8 +69,8 @@ class TB {
   TB() {
     std::function<void(TestB)> func = std::bind(&TB::OnChanged, this, std::placeholders::_1);
     std::function<void(TestB)> func1 = std::bind(&TB::OnChanged1, this, std::placeholders::_1);
-    seeker::RegisterCfgChangedEvent<TestB>("A", func);
-    seeker::RegisterCfgChangedEvent<TestB>("B", func1);
+    seeker::Cfg::RegisterChangedEvent<TestB>("A", func);
+    seeker::Cfg::RegisterChangedEvent<TestB>("B", func1);
   }
   void OnChanged(TestB t) {
     std::cout << "A CHANGED: " << t.a << std::endl;
@@ -81,23 +81,23 @@ class TB {
 };
 
 int main() {
-  std::cout << std::boolalpha << seeker::InitializeCfg("test.json") << std::endl;
+  std::cout << std::boolalpha << seeker::Cfg::Init("test.json") << std::endl;
   
-  auto int_json = seeker::QueryCfg<int>("int");
+  auto int_json = seeker::Cfg::Query<int>("int");
   std::cout << "INT: " << int_json << std::endl;
   int_json = 200;
-  seeker::UpdateCfg("int", int_json);
+  seeker::Cfg::Update("int", int_json);
 
   TA ta;
   TB tb;
-  auto test_json = seeker::QueryCfg<TestB>("test");
+  auto test_json = seeker::Cfg::Query<TestB>("test");
   std::cout << "STRUCT TESTB a:" << test_json.a << std::endl;
   test_json.a = 2;
-  seeker::UpdateCfg("test", test_json);
+  seeker::Cfg::Update("test", test_json);
   test_json.a = 3;
-  seeker::UpdateCfg("test", test_json);
+  seeker::Cfg::Update("test", test_json);
   test_json.a = 4;
-  seeker::UpdateCfg("test", test_json);
+  seeker::Cfg::Update("test", test_json);
 #if 0
   std::fstream fs;
   fs.open("test.json", std::ios::in);
