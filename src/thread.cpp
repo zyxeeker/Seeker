@@ -1,11 +1,3 @@
-/**
- * @file thread.cpp
- * @author zyxeeker (zyxeeker@gmail.com)
- * @brief 线程模块的实现
- * @version 1.0
- * @date 2023-06-09
- */
-
 #include "thread.h"
 
 #include <unistd.h>
@@ -332,6 +324,35 @@ void Sem::Destory() {
 //// Semaphore End
 } // th
 
+TaskBase::Impl::Impl(std::string name, Func func)
+    : name_(std::move(name)),
+      func_(std::move(func)) {}
+
+TaskBase::Impl::~Impl() = default;
+
+TaskBase::TaskBase(std::string name, Func func)
+    : impl_(std::make_unique<TaskBase::Impl>(std::move(name), std::move(func))) {}
+
+TaskBase::~TaskBase() = default;
+
+std::string TaskBase::name() const {
+  return impl_->name();
+}
+
+time_t TaskBase::start_time() const {
+  return impl_->start_time();
+}
+
+time_t TaskBase::done_time() const {
+  return impl_->done_time();
+}
+
+time_t GetCurrentTimeMsec(){
+	auto time = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
+	time_t timestamp = time.time_since_epoch().count();
+	return timestamp;
+}
+
 ThreadPool::Impl::Impl(size_t thread_num)
     : started_(false), 
       thread_num_(thread_num) {}
@@ -380,7 +401,7 @@ void ThreadPool::Impl::Stop() {
   threads_.clear();
 }
 
-void ThreadPool::Impl::PushTask(Task::Ptr&& task) {
+void ThreadPool::Impl::PushTask(TaskBase::Ptr&& task) {
   std::lock_guard<std::mutex> l(mutex_);
   tasks_.push(std::move(task));
   cv_.notify_one();
@@ -400,7 +421,11 @@ void ThreadPool::Impl::Loop() {
       if (!task) {
         continue;
       }
-      task->Func();
+      
+      task->impl_->set_start_time(GetCurrentTimeMsec());
+      (task->impl_->func())();
+      task->impl_->set_done_time(GetCurrentTimeMsec());
+      
       tasks_.pop();
     }
   }
@@ -419,8 +444,8 @@ void ThreadPool::Stop() {
   impl_->Stop();
 }
 
-void ThreadPool::PushTask(ThreadPool::Task::Ptr&& task_ptr) {
-  impl_->PushTask(std::move(task_ptr));
+void ThreadPool::PushTask(TaskBase::Ptr task) {
+  impl_->PushTask(std::move(task));
 }
 
 } // seeker

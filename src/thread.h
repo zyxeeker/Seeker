@@ -1,9 +1,9 @@
-/**
- * @file thread.h
- * @author zyxeeker (zyxeeker@gmail.com)
- * @brief 线程模块的实现
- * @version 1.0
- * @date 2023-06-09
+/*
+ * @Author: zyxeeker zyxeeker@gmail.com
+ * @Date: 2023-06-09 17:12:31
+ * @LastEditors: zyxeeker zyxeeker@gmail.com
+ * @LastEditTime: 2023-10-30 15:14:43
+ * @Description: 线程池的实现
  */
 
 #ifndef _SEEKER_SRC_THREAD_H_
@@ -138,6 +138,36 @@ struct Sem::Impl {
 
 } // th
 
+class TaskBase::Impl {
+ public:
+  Impl(std::string name, Func func);
+  ~Impl();
+
+  inline std::string name() const {
+    return name_;
+  }
+  inline time_t start_time() const {
+    return start_time_;
+  }
+  inline void set_start_time(time_t time) {
+    start_time_ = time;
+  }
+  inline time_t done_time() const {
+    return done_time_;
+  }
+  inline void set_done_time(time_t time) {
+    done_time_ = time;
+  }
+  inline const Func& func() const {
+    return func_;
+  }
+ private:
+  std::string name_;
+  time_t start_time_ = 0;
+  time_t done_time_ = 0;
+  Func func_;
+};
+
 class ThreadPool::Impl {
  public:
   Impl(size_t thread_num);
@@ -145,7 +175,7 @@ class ThreadPool::Impl {
 
   bool Start();
   void Stop();
-  void PushTask(Task::Ptr&& task);
+  void PushTask(TaskBase::Ptr&& task);
   
  private:
   void Loop();
@@ -155,7 +185,7 @@ class ThreadPool::Impl {
   size_t thread_num_;
   std::mutex mutex_;
   std::condition_variable cv_;
-  std::queue<Task::Ptr> tasks_;
+  std::queue<TaskBase::Ptr> tasks_;
   std::vector<std::thread> threads_;  
 };
 
