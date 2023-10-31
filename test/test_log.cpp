@@ -21,7 +21,7 @@ void Test2() {
 
 int main() {
   std::cout << std::boolalpha << seeker::Cfg::Init("test.json") << std::endl;
-#if 0
+#if 1
   std::string s{"TEST"};
   seeker::log::Info() << "TEST" << 1111 << 2222 << s << std::boolalpha << true;
   

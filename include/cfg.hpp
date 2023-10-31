@@ -2,7 +2,7 @@
  * @Author: zyxeeker zyxeeker@gmail.com
  * @Date: 2023-10-17 17:08:11
  * @LastEditors: zyxeeker zyxeeker@gmail.com
- * @LastEditTime: 2023-10-31 14:24:07
+ * @LastEditTime: 2023-10-31 20:45:38
  * @Description: 配置模块
  */
 
@@ -140,10 +140,15 @@ struct FromJsonImpl {
       if constexpr (std::is_class<T>::value) {
         TupleForEach(value.Properties, [&](const auto e) {
           using ValueType = typename decltype(e)::Type;
-          if constexpr (std::is_class<ValueType>::value) {
-            value.*(e.Member) = FromJsonImpl<ValueType>()(json[e.Name]);
+          auto res = json.find(e.Name);
+          if (res == json.end()) {
+            value.*(e.Member) = ValueType {};
           } else {
-            value.*(e.Member) = ((nlohmann::json&)json[e.Name]).get<ValueType>();
+            if constexpr (std::is_class<ValueType>::value) {
+              value.*(e.Member) = FromJsonImpl<ValueType>()(json[e.Name]);
+            } else {
+              value.*(e.Member) = ((nlohmann::json&)json[e.Name]).get<ValueType>();
+            }
           }
         });
       } else {
@@ -161,7 +166,7 @@ struct FromJsonImpl<std::string> {
   std::string operator()(const nlohmann::json& json) {
     std::string str;
     try {
-      str = nlohmann::to_string(json);
+      str = json.get<std::string>();
     } catch (...) {
     }
     return str;
