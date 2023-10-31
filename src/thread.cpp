@@ -4,6 +4,7 @@
 #include <exception>
 
 #include "log.h"
+#include "util.h"
 
 #define DEFAULT_THREAD_NAME    "UNKNOWN"
 #define SYS_API_RES_CHECK(api) \
@@ -347,12 +348,6 @@ time_t TaskBase::done_time() const {
   return impl_->done_time();
 }
 
-time_t GetCurrentTimeMsec(){
-	auto time = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
-	time_t timestamp = time.time_since_epoch().count();
-	return timestamp;
-}
-
 ThreadPool::Impl::Impl(size_t thread_num)
     : started_(false), 
       thread_num_(thread_num) {}
@@ -422,9 +417,9 @@ void ThreadPool::Impl::Loop() {
         continue;
       }
       
-      task->impl_->set_start_time(GetCurrentTimeMsec());
+      task->impl_->set_start_time(util::GetCurTimeStamp());
       (task->impl_->func())();
-      task->impl_->set_done_time(GetCurrentTimeMsec());
+      task->impl_->set_done_time(util::GetCurTimeStamp());
       
       tasks_.pop();
     }

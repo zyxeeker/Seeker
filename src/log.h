@@ -14,10 +14,12 @@
 #include <memory>
 #include <sstream>
 #include <unordered_map>
+
 #include "../include/log.h"
-#include "../include/cfg.h"
-#include "../include/util.h"
 #include "thread.h"
+
+#include "cfg.hpp"
+#include "util.hpp"
 
 #define DEFAULT_LOGGER_NAME           "root"
 #define DEFAULT_FORMATTER_PATTERN     "%d [%P](%r){%F:%L(%N)} %m"
@@ -286,22 +288,30 @@ class Logger : public std::enable_shared_from_this<Logger> {
   th::Mutex mutex_;
 };
 
-/**
- * @brief Logger输出对象(JSON)
- */
-struct LoggerOutputerJsonObj {
-  OUTPUT_TYPE type_;
-  std::string path_;
+struct LoggerOutputMeta {
+  OUTPUT_TYPE Type;
+  std::string Path;
+
+  DEFINE_PROPERTIES(
+    LoggerOutputMeta,
+    PROPERTY_SCHME(Type, "type"),
+    PROPERTY_SCHME(Path, "path")
+  )
 };
 
-/**
- * @brief Logger对象(JSON)
- */
-struct LoggerJsonObj {
-  std::string name_;
-  std::string level_;
-  std::string formatting_str_;
-  std::vector<LoggerOutputerJsonObj> output_arr_;
+struct LoggerMeta {
+  std::string Name;
+  std::string Level;
+  std::string FormattingStr;
+  std::vector<LoggerOutputMeta> Output;
+
+  DEFINE_PROPERTIES(
+    LoggerMeta,
+    PROPERTY_SCHME(Name, "name"),
+    PROPERTY_SCHME(Level, "level"),
+    PROPERTY_SCHME(FormattingStr, "format"),
+    PROPERTY_SCHME(Output, "output")
+  )
 };
 
 /**
@@ -346,6 +356,10 @@ class Manager {
   void set_min_level(Level::level level) {
     min_level_ = level;
   }
+
+ private:
+  void OnCfgChanged(std::vector<LoggerMeta> cfg);
+
  private:
   /**
    * @brief 默认日志器
@@ -362,7 +376,7 @@ class Manager {
   /**
    * @brief 从配置文件解析得到的日志器参数
    */
-  cfg::Var<std::vector<LoggerJsonObj> > cfg_arr_;
+  std::vector<LoggerMeta> logger_meta_;
   /**
    * @brief 日志器字典操作读写锁
    */

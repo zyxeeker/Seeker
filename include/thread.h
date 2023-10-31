@@ -58,7 +58,7 @@ class Thread {
  private:
   std::unique_ptr<Impl> impl_;
 
-  DO_NOT_ASSIGN_AND_COPY(Thread);
+  // DO_NOT_ASSIGN_AND_COPY(Thread);
 };
 
 /**

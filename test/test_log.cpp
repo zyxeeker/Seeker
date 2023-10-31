@@ -1,8 +1,10 @@
-#include "log.h"
-#include "thread.h"
 #include <iostream>
 #include <string>
 #include <vector>
+
+#include <log.h>
+#include <thread.h>
+#include <cfg.hpp>
 
 void Test1() {
   while(1) {
@@ -13,11 +15,13 @@ void Test1() {
 void Test2() {
   int i = 0;
   while (1) {
-    seeker::log::Debug("system") << "================" << i++;
+    seeker::log::Debug("cfg") << "================" << i++;
   }
 }
 
 int main() {
+  std::cout << std::boolalpha << seeker::Cfg::Init("test.json") << std::endl;
+#if 0
   std::string s{"TEST"};
   seeker::log::Info() << "TEST" << 1111 << 2222 << s << std::boolalpha << true;
   
@@ -30,6 +34,7 @@ int main() {
   for (auto &i : ths) {
     i->Join();
   }
+#endif
   seeker::log::Debug() << "TETEE";
   seeker::log::Info() << "TETEE";
   seeker::log::Warn() << "TETEE";

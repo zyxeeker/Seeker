@@ -1,9 +1,9 @@
-/**
- * @file cfg.hpp
- * @author zyxeeker (zyxeeker@gmail.com)
- * @brief 配置值转换
- * @version 1.0
- * @date 2023-10-17
+/*
+ * @Author: zyxeeker zyxeeker@gmail.com
+ * @Date: 2023-10-17 17:08:11
+ * @LastEditors: zyxeeker zyxeeker@gmail.com
+ * @LastEditTime: 2023-10-31 14:24:07
+ * @Description: 配置模块
  */
 
 #ifndef __SEEKER_CFG_HPP__
@@ -23,7 +23,10 @@
   using ValueType = STRUCT;                                         \
   static constexpr auto Properties = std::make_tuple(__VA_ARGS__);  \
 
-#define PROPERTY_SCHME(NAME, DST_NAME)         \
+#define PROPERTY(NAME)                                \
+  seeker::CfgVarProperty(&ValueType::NAME, #NAME)     \
+
+#define PROPERTY_SCHME(NAME, DST_NAME)                \
   seeker::CfgVarProperty(&ValueType::NAME, DST_NAME)  \
 
 namespace seeker {
@@ -76,6 +79,18 @@ struct ToJsonImpl {
       json = nlohmann::json{};
     }
     return std::move(json);
+  }
+};
+
+template <>
+struct ToJsonImpl<std::string> {
+  nlohmann::json operator()(const std::string& value) {
+    nlohmann::json json;
+    try {
+      json = nlohmann::json::parse(value);
+    } catch(...) {
+    }
+    return json;
   }
 };
 
@@ -138,6 +153,18 @@ struct FromJsonImpl {
       value = T{};
     }
     return std::move(value);
+  }
+};
+
+template <>
+struct FromJsonImpl<std::string> {
+  std::string operator()(const nlohmann::json& json) {
+    std::string str;
+    try {
+      str = nlohmann::to_string(json);
+    } catch (...) {
+    }
+    return str;
   }
 };
 

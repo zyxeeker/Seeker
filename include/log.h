@@ -1,16 +1,18 @@
-/**
- * @file log.h
- * @author zyxeeker (zyxeeker@gmail.com)
- * @brief 日志接口
- * @version 1.0
- * @date 2023-05-24
+/*
+ * @Author: zyxeeker zyxeeker@gmail.com
+ * @Date: 2023-05-24 16:28:41
+ * @LastEditors: zyxeeker zyxeeker@gmail.com
+ * @LastEditTime: 2023-10-31 12:46:05
+ * @Description: 日志模块接口
  */
+
 #ifndef _SEEKER_LOG_H_
 #define _SEEKER_LOG_H_
 
 #include <iostream>
 #include <memory>
 #include <sstream>
+
 #include "util.h"
 
 namespace seeker {
@@ -34,7 +36,7 @@ namespace log {
   const char* file_name = __builtin_FILE(),           \
   const char* function_name = __builtin_FUNCTION(),   \
   int line_num = __builtin_LINE(),                    \
-  uint64_t timestamp = util::GetTimeStamp()
+  uint64_t timestamp = util::GetCurTimeStamp()
 
 /**
  * @brief 日志等级
