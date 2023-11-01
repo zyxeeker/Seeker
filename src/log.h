@@ -2,7 +2,7 @@
  * @Author: zyxeeker zyxeeker@gmail.com
  * @Date: 2023-10-31 17:19:37
  * @LastEditors: zyxeeker zyxeeker@gmail.com
- * @LastEditTime: 2023-10-31 20:51:02
+ * @LastEditTime: 2023-11-01 09:26:25
  * @Description: 
  */
 
@@ -40,7 +40,7 @@ class Log::Impl {
   }
  private:
   Event::Ptr event_;
-  Logger::Ptr logger_;
+  std::string name_;
 };
 
 } // namespace log

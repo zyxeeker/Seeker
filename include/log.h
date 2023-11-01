@@ -2,7 +2,7 @@
  * @Author: zyxeeker zyxeeker@gmail.com
  * @Date: 2023-05-24 16:28:41
  * @LastEditors: zyxeeker zyxeeker@gmail.com
- * @LastEditTime: 2023-10-31 12:46:05
+ * @LastEditTime: 2023-11-01 09:50:34
  * @Description: 日志模块接口
  */
 
@@ -41,30 +41,13 @@ namespace log {
 /**
  * @brief 日志等级
  */
-struct Level {
-  /**
-   * @brief 等级枚举值
-   */
-  typedef enum {
-    UNKNOWN = 0,
-    DEBUG,
-    INFO,
-    WARN,
-    ERROR,
-    FATAL,
-  } level;
-  /**
-   * @brief 等级枚举值转字符串
-   * @param l 枚举等级
-   * @return std::string 等级字符串
-   */
-  static std::string ToString(level l);
-  /**
-   * @brief 等级字符串转等级枚举值
-   * @param l_str 等级字符串
-   * @return level 等级枚举值
-   */
-  static level FromString(std::string l_str);
+enum LEVEL {
+  UNKNOWN = 0,
+  DEBUG,
+  INFO,
+  WARN,
+  ERROR,
+  FATAL,
 };
 
 /**
@@ -73,6 +56,7 @@ struct Level {
 class Log {
  public:
   using StdOut = std::basic_ostream<char, std::char_traits<char> >;
+
   Log();
   ~Log();
 
@@ -86,12 +70,15 @@ class Log {
     oss << StdOutFuncP;
     return (*this);
   }
+
  private:
   std::ostringstream oss;
   struct Impl;
   std::unique_ptr<Impl> impl_;
+  
  private:
   Log(std::unique_ptr<Impl> impl);
+  
   friend Log Debug(LOG_API_PARAM_DEF);
   friend Log Info(LOG_API_PARAM_DEF);
   friend Log Warn(LOG_API_PARAM_DEF);
@@ -102,7 +89,7 @@ class Log {
 /**
  * @brief 设置全局最低输出等级
  */
-void SetMinLogLevel(Level::level level);
+void SetMinLogLevel(LEVEL level);
 
 /**
  * @brief 日志Debug输出

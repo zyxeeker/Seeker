@@ -11,7 +11,7 @@
 namespace seeker {
 namespace log {
 
-Logger::Logger(std::string name, Level::level level)
+Logger::Logger(std::string name, LEVEL level)
     : name_(name),
       level_(level),
       formatter_(new Formatter(DEFAULT_FORMATTER_PATTERN)),
@@ -29,22 +29,25 @@ void Logger::Init() {
 }
 
 void Logger::Output(Event::Ptr event_ptr) {
-  // 如果小于设置的最小等级则不进行输出
-  if (Mgr::GetInstance().min_level() > level_)
+  if (formatter_->items().empty()) {
     return;
-
-  std::lock_guard<std::mutex> l(mutex_);
-  for (auto &i : outputer_->items()) {
-    i->Output(shared_from_this(), formatter_->items(), event_ptr);
+  }
+  std::ostringstream oss;
+  for (auto& i : formatter_->items()) {
+    i->ToStream(oss, shared_from_this(), event_ptr);
+  }
+  oss << std::endl;
+  for (auto& i : outputer_->items()) {
+    i->Output(oss);
   }
 }
 
 //// Manager Begin
 Manager::Manager()
-    : min_level_(Level::UNKNOWN) {
+    : min_level_(LEVEL::UNKNOWN) {
   // 默认日志器构建失败抛出异常
   try {
-    default_logger_ = Logger::Ptr(new Logger(DEFAULT_LOGGER_NAME, Level::UNKNOWN));
+    default_logger_ = Logger::Ptr(new Logger(DEFAULT_LOGGER_NAME, min_level_));
     default_logger_->Init();
   } catch (...) {
     throw LogicError::Create(MODULE_NAME, 
@@ -58,27 +61,24 @@ Manager::Manager()
   CfgVar<std::vector<Logger::Meta> >::Get().Update(res);
 }
 
-Logger::Ptr Manager::GetLogger(std::string key) {
+void Manager::Output(const std::string& key, const Event::Ptr& event) {
   std::lock_guard<std::mutex> l(mutex_);
   auto res = loggers_.find(key);
-  // 若不存在返回管理器中默认日志器
-  return res == loggers_.end() ? default_logger_ : res->second;
+  auto logger = res == loggers_.end() ? default_logger_ : res->second;
+
+  // 如果小于设置的最小等级则不进行输出
+  if (min_level_ > logger->level()) {
+    return;
+  }
+  logger->Output(event);
 }
 
 void Manager::AddLogger(Logger::Ptr ptr) {
-  // auto res = loggers_.find(ptr->name());
-  // 存储的对象中未有重名的日志器时进行添加, 反之则替换格式和输出管理器
   std::lock_guard<std::mutex> l(mutex_);
   loggers_[ptr->name()] = ptr;
-  // if (res == loggers_.end())
-  //   loggers_[ptr->name()] = ptr;
-  // else {
-  //   res->second->set_formatter(ptr->formatter());
-  //   res->second->set_outputer(ptr->outputer());
-  // }
 }
 
-void Manager::DeleteLogger(std::string logger_name) {
+void Manager::DeleteLogger(const std::string& logger_name) {
   std::lock_guard<std::mutex> l(mutex_);
   loggers_.erase(logger_name);
 }

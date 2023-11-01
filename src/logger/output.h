@@ -2,7 +2,7 @@
  * @Author: zyxeeker zyxeeker@gmail.com
  * @Date: 2023-10-31 16:51:22
  * @LastEditors: zyxeeker zyxeeker@gmail.com
- * @LastEditTime: 2023-10-31 20:52:02
+ * @LastEditTime: 2023-11-01 11:18:06
  * @Description: 
  */
 
@@ -41,32 +41,29 @@ class Outputer {
     /**
      * @brief 输出接口
      */
-    virtual void Output(const std::shared_ptr<Logger> logger,
-                        const std::vector<Formatter::IItem::Ptr>& items,
-                        const std::shared_ptr<Event> event_ptr) = 0;
+    virtual void Output(const std::ostringstream& oss) = 0;
   };
 
  public:
   Outputer();
   Outputer(std::vector<Meta> meta);
+
   /**
    * @brief 添加输出
    */
-  void AddItem(IItem::Ptr output) {
-    std::lock_guard<std::mutex> l(mutex_);
+  inline void AddItem(IItem::Ptr output) {
     items_.push_back(output);
   }
   /**
    * @brief 清空输出数组
    */
-  void ClearItems() {
-    std::lock_guard<std::mutex> l(mutex_);
+  inline void ClearItems() {
     items_.clear();
   }
   /**
    * @brief 获取输出数组
    */
-  const std::vector<IItem::Ptr>& items() {
+  const std::vector<IItem::Ptr>& items() const {
     return items_;
   }
 
@@ -75,8 +72,6 @@ class Outputer {
    * @brief 输出数组
    */
   std::vector<IItem::Ptr> items_;
-
-  std::mutex mutex_;
 };
 
 } // namespace log

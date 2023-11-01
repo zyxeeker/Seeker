@@ -5,20 +5,23 @@
 #include "net/mongoose_service.h"
 
 namespace seeker {
+namespace net {
 
-bool NetServiceMgr::RegisterService(const std::string& name, 
+bool Manager::RegisterService(const std::string& name, 
                                     TYPE type, INetService::Ptr ptr) {
   std::lock_guard<std::mutex> l(mutex_);
   return service_.insert({ name, { ptr, type } }).second;
 }
 
-void NetServiceMgr::UnregisterService(const std::string& name) {
+void Manager::UnregisterService(const std::string& name) {
   std::lock_guard<std::mutex> l(mutex_);
   service_.erase(name);
 }
 
+} // namespace net
+
 void INetService::ListAllService() {
-  for (auto& i : NetServiceMgr::GetInstance().service()) {
+  for (auto& i : net::Mgr::GetInstance().service()) {
 
     std::cout << "Service Name: " << i.first 
               << ", Type: " << i.second.Type << std::endl;
@@ -27,8 +30,8 @@ void INetService::ListAllService() {
 
 IHttpService::WPtr IHttpService::Create(const std::string& name, uint16_t port) {
   auto ptr = std::make_shared<MongooseService>(port);
-  auto res = NetServiceMgr::GetInstance().RegisterService(
-                name, NetServiceMgr::SERVICE_HTTP, 
+  auto res = net::Mgr::GetInstance().RegisterService(
+                name, net::Manager::SERVICE_HTTP, 
                 std::dynamic_pointer_cast<INetService>(ptr));
   if (!res) {
     ptr.reset();
@@ -38,7 +41,7 @@ IHttpService::WPtr IHttpService::Create(const std::string& name, uint16_t port) 
 }
 
 void IHttpService::Destory(const std::string& name) {
-  NetServiceMgr::GetInstance().UnregisterService(name);
+  net::Mgr::GetInstance().UnregisterService(name);
 }
 
 } // namespace seeker

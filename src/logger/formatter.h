@@ -2,7 +2,7 @@
  * @Author: zyxeeker zyxeeker@gmail.com
  * @Date: 2023-10-31 16:17:54
  * @LastEditors: zyxeeker zyxeeker@gmail.com
- * @LastEditTime: 2023-10-31 20:20:13
+ * @LastEditTime: 2023-11-01 11:17:25
  * @Description: 
  */
 
@@ -22,10 +22,10 @@ namespace log {
 
 namespace level {
 
-static std::string ToString(log::Level::level l) {
+static std::string ToString(log::LEVEL l) {
     switch (l) {
 #define TRANS(name) \
-  case log::Level::name:\
+  case log::LEVEL::name:\
       return #name;
 
   TRANS(DEBUG)
@@ -39,10 +39,10 @@ static std::string ToString(log::Level::level l) {
   }
 }
 
-static log::Level::level FromString(std::string l_str) {
+static log::LEVEL FromString(std::string l_str) {
 #define TRANS(level) \
   if (l_str == #level) \
-    return log::Level::level;
+    return log::LEVEL::level;
 
   TRANS(DEBUG)
   TRANS(INFO)
@@ -50,7 +50,8 @@ static log::Level::level FromString(std::string l_str) {
   TRANS(ERROR)
   TRANS(FATAL)
 #undef TRANS
-  return log::Level::UNKNOWN;
+
+  return log::LEVEL::UNKNOWN;
 }
 
 } // namespace level
@@ -90,21 +91,19 @@ class Formatter {
   /**
    * @brief 添加子项
    */
-  void AddItem(IItem::Ptr item) {
-    std::lock_guard<std::mutex> l(mutex_);
+  inline void AddItem(IItem::Ptr item) {
     items_.push_back(item);
   }
   /**
    * @brief 清空子项数组
    */
-  void ClearItems() {
-    std::lock_guard<std::mutex> l(mutex_);
+  inline void ClearItems() {
     items_.clear();
   }
   /**
    * @brief 返回格式字符串 
    */
-  std::string raw() const {
+  const std::string& raw() const {
     return raw_;
   }
   /**
@@ -123,8 +122,6 @@ class Formatter {
    * @brief 解析后的格式子项数组
    */
   std::vector<IItem::Ptr> items_;
-
-  std::mutex mutex_;
 };
 
 } // namespace log

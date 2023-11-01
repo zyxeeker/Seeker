@@ -42,35 +42,35 @@ struct Event {
   /**
    * @brief 等级
    */
-  Level::level level_;
+  LEVEL Level;
   /**
    * @brief 文件名
    */
-  const char* file_name_;
+  const char* FileName;
   /**
    * @brief 函数名
    */
-  const char* function_name_;
+  const char* FunctionName;
   /**
    * @brief 行号
    */
-  int line_num_;
+  int Line;
   /**
    * @brief 时间戳
    */
-  uint64_t timestamp_;
+  uint64_t Timestamp;
   /**
    * @brief 线程ID
    */
-  pid_t thread_id_;
+  pid_t ThreadId;
   /**
    * @brief 线程名
    */
-  std::string thread_name_;
+  std::string ThreadName;
   /**
    * @brief 内容
    */
-  std::ostringstream content_;
+  std::ostringstream Content;
 };
 
 /**
@@ -96,7 +96,7 @@ class Logger : public std::enable_shared_from_this<Logger> {
   };
 
  public:
-  Logger(std::string name, Level::level level);
+  Logger(std::string name, LEVEL level);
 
   Logger(Meta meta);
 
@@ -109,45 +109,43 @@ class Logger : public std::enable_shared_from_this<Logger> {
   /**
    * @brief 获取日志名
    */
-  std::string name() const {
+  inline const std::string& name() const {
     return name_;
   }
   /**
    * @brief 设置输出等级
    */
-  void set_level(Level::level level) {
+  inline void set_level(LEVEL level) {
     level_ = level;
   }
   /**
    * @brief 获取输出等级
    */
-  Level::level level() const {
+  inline LEVEL level() const {
     return level_;
   }
   /**
    * @brief 设置格式管理器
    */
-  void set_formatter(Formatter::Ptr formatter) {
-    std::lock_guard<std::mutex> l(mutex_);
+  inline void set_formatter(Formatter::Ptr formatter) {
     formatter_ = formatter;
   }
   /**
    * @brief 获取格式管理器
    */
-  Formatter::Ptr formatter() const {
+  inline Formatter::Ptr formatter() const {
     return formatter_;
   }
   /**
    * @brief 设置输出管理器
    */
-  void set_outputer(Outputer::Ptr outputer) {
-    std::lock_guard<std::mutex> l(mutex_);
+  inline void set_outputer(Outputer::Ptr outputer) {
     outputer_ = outputer;
   }
   /**
    * @brief 获取输出管理器
    */
-  Outputer::Ptr outputer() const {
+  inline Outputer::Ptr outputer() const {
     return outputer_;
   }
 
@@ -159,7 +157,7 @@ class Logger : public std::enable_shared_from_this<Logger> {
   /**
    * @brief 输出等级
    */
-  Level::level level_;
+  LEVEL level_;
   /**
    * @brief 日志格式器
    */
@@ -168,8 +166,6 @@ class Logger : public std::enable_shared_from_this<Logger> {
    * @brief 日志输出器
    */
   Outputer::Ptr outputer_;
-
-  std::mutex mutex_;
 };
 
 /**
@@ -182,10 +178,11 @@ class Manager {
   * @throw 初始化失败则抛出exception::LoggerInitError
   */
   Manager();
+
   /**
-   * @brief 获取指定日志器
+   * @brief 输出
    */
-  Logger::Ptr GetLogger(std::string key);
+  void Output(const std::string& key, const Event::Ptr& event);
   /**
    * @brief 添加日志器
    */
@@ -193,24 +190,24 @@ class Manager {
   /**
    * @brief 删除指定日志器
    */
-  void DeleteLogger(std::string logger_name);
+  void DeleteLogger(const std::string& logger_name);
   /**
    * @brief 获取默认日志器 
    */
-  Logger::Ptr default_logger() {
+  inline const Logger::Ptr& default_logger() const {
     return default_logger_;
   }
   /**
    * @brief 获取设置的最小输出等级
    */
-  Level::level min_level() const {
+  LEVEL min_level() const {
     return min_level_;
   }
   /**
    * @brief 设置最小输出等级
    * @param level 
    */
-  void set_min_level(Level::level level) {
+  inline void set_min_level(LEVEL level) {
     min_level_ = level;
   }
 
@@ -225,7 +222,7 @@ class Manager {
   /**
    * @brief 最低输出等级
    */
-  Level::level min_level_;
+  LEVEL min_level_;
   /**
   * @brief 日志器字典
   */

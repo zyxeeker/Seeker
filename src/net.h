@@ -2,7 +2,7 @@
  * @Author: zyxeeker zyxeeker@gmail.com
  * @Date: 2023-10-25 10:02:24
  * @LastEditors: zyxeeker zyxeeker@gmail.com
- * @LastEditTime: 2023-10-30 18:07:42
+ * @LastEditTime: 2023-11-01 11:29:52
  * @Description: 网络接口具体实现
  */
 
@@ -15,9 +15,12 @@
 
 #include "net.hpp"
 
-namespace seeker {
+#include "util.hpp"
 
-class NetServiceMgr {
+namespace seeker {
+namespace net {
+
+class Manager {
  public:
   enum TYPE {
     SERVICE_HTTP,
@@ -30,11 +33,6 @@ class NetServiceMgr {
   };
 
  public:
-  inline static NetServiceMgr& GetInstance() {
-    static NetServiceMgr inst;
-    return inst;
-  }
-
   bool RegisterService(const std::string& name, TYPE type, INetService::Ptr ptr);
   void UnregisterService(const std::string& name);
 
@@ -46,6 +44,9 @@ class NetServiceMgr {
   std::unordered_map<std::string, ServiceMeta> service_;
 };
 
+using Mgr = util::Single<Manager>;
+
+} // namespace net
 } // namespace seeker
 
 #endif // __SEEKER_SRC_NET_H__

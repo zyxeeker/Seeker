@@ -31,7 +31,7 @@ class LevelItem : public Formatter::IItem {
   void ToStream(std::ostream &os, 
                 const Logger::Ptr logger, 
                 const Event::Ptr event_ptr) override {
-    os << level::ToString(event_ptr->level_);
+    os << level::ToString(event_ptr->Level);
   }
 };
 
@@ -44,7 +44,7 @@ class FileNameItem : public Formatter::IItem {
   void ToStream(std::ostream &os, 
                 const Logger::Ptr logger, 
                 const Event::Ptr event_ptr) override {
-    os << event_ptr->file_name_;
+    os << event_ptr->FileName;
   }
 };
 
@@ -57,7 +57,7 @@ class FunctionItem : public Formatter::IItem {
   void ToStream(std::ostream &os, 
                 const Logger::Ptr logger, 
                 const Event::Ptr event_ptr) override {
-    os << event_ptr->function_name_;
+    os << event_ptr->FunctionName;
   }
 };
 
@@ -71,8 +71,8 @@ class LineItem : public Formatter::IItem {
                 const Logger::Ptr logger, 
                 const Event::Ptr event_ptr) override {
     // 行号为0时输出"(null)"
-    if (event_ptr->line_num_)
-      os << event_ptr->line_num_;
+    if (event_ptr->Line)
+      os << event_ptr->Line;
     else
       os << "(null)";
   }
@@ -90,9 +90,9 @@ class TimeItem : public Formatter::IItem {
                 const Event::Ptr event_ptr) override {
   // 当没有格式时默认输出时间戳
   if (format_.length() == 0)
-    os << event_ptr->timestamp_;
+    os << event_ptr->Timestamp;
   else
-    util::TimeStampToString(format_, event_ptr->timestamp_);
+    util::TimeStampToString(format_, event_ptr->Timestamp);
   }
  private:
   std::string format_;
@@ -107,7 +107,7 @@ class ThreadIdItem : public Formatter::IItem {
   void ToStream(std::ostream &os, 
                 const Logger::Ptr logger, 
                 const Event::Ptr event_ptr) override {
-    os << event_ptr->thread_id_;
+    os << event_ptr->ThreadId;
   }
 };
 
@@ -120,7 +120,7 @@ class ThreadNameItem : public Formatter::IItem {
   void ToStream(std::ostream &os, 
                 const Logger::Ptr logger, 
                 const Event::Ptr event_ptr) override {
-    os << event_ptr->thread_name_;
+    os << event_ptr->ThreadName;
   }
 };
 
@@ -133,7 +133,7 @@ class ContentItem : public Formatter::IItem {
   void ToStream(std::ostream &os, 
                 const Logger::Ptr logger, 
                 const Event::Ptr event_ptr) override {
-    os << event_ptr->content_.str();
+    os << event_ptr->Content.str();
   }
 };
 

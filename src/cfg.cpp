@@ -8,12 +8,21 @@ namespace cfg {
 Manager::Manager() = default;
 
 Manager::~Manager() {
-  WriteFile();
+  file_->Write(data_, true);
 }
 
-bool Manager::Start(const std::string path) {
-  path_ = path;
-  return ReadFile();
+bool Manager::Start(const std::string& path) {
+  file_ = std::make_shared<FileService>(path, 3);
+  try {
+    if (!file_->Read(data_)) {
+      return false;
+    }
+    // std::cout << "DATA: " << nlohmann::to_string(data_) << std::endl;
+  } catch(nlohmann::json::exception ex) {
+    std::cout << ex.what() << std::endl;
+    return false;
+  }
+  return true;
 }
 
 void Manager::Register(const std::string& key, 
@@ -40,7 +49,8 @@ nlohmann::json Manager::Query(const std::string& key) {
 void Manager::Update(const std::string& key, const nlohmann::json& json) {
   std::lock_guard<std::mutex> l(data_ops_mutex_);
   data_[key] = json;
-  WriteFile();
+
+  file_->Write(data_);
 }
 
 void Manager::Notify(const std::string& key, const nlohmann::json& json) {
@@ -49,32 +59,6 @@ void Manager::Notify(const std::string& key, const nlohmann::json& json) {
   if (e) {
     (e)(json);
   }
-}
-
-bool Manager::ReadFile() {
-  std::ifstream ifs;
-  ifs.open(path_);
-  if (ifs.fail()) {
-    return false;
-  }
-  try {
-    data_ = nlohmann::json::parse(ifs);
-  } catch(nlohmann::json::exception ex) {
-    std::cout << ex.what() << std::endl;
-    ifs.close();
-    return false;
-  }
-  return true;
-}
-
-void Manager::WriteFile() {
-  std::ofstream ofs;
-  ofs.open(path_, std::ios::trunc);
-  if (!ofs.good()) {
-    return;
-  }
-  ofs << data_;
-  ofs.close();
 }
 
 } // namespace cfg
