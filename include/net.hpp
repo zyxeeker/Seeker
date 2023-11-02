@@ -2,7 +2,7 @@
  * @Author: zyxeeker zyxeeker@gmail.com
  * @Date: 2023-10-25 09:12:19
  * @LastEditors: zyxeeker zyxeeker@gmail.com
- * @LastEditTime: 2023-10-30 18:02:09
+ * @LastEditTime: 2023-11-02 14:17:20
  * @Description: 网络服务基本接口
  */
 
@@ -42,6 +42,12 @@ class IHttpService : public INetService {
     // TODO: Support More...
   };
 
+  enum AUTH_RESULT {
+    OK            = 0,
+    UNAUTHORIZED  = 401,
+    FORBIDEN      = 403
+  };
+
   struct HeaderMeta {
     std::string Key;
     std::string Value;
@@ -59,11 +65,12 @@ class IHttpService : public INetService {
   };
 
   struct RespMsgMeta {
-    // TODO: Support Code
+    uint32_t Code;
     MsgMetaComplex Complex;
   };
 
   using MsgCallBack = std::function<RespMsgMeta(const ReqMsgMeta&)>;
+  using AuthCallBack = std::function<AUTH_RESULT(const std::string&)>;
   
   virtual ~IHttpService() = default;
 
@@ -71,13 +78,21 @@ class IHttpService : public INetService {
 
   static void Destory(const std::string& name);
 
-  virtual bool RegisterRouter(const std::string& name, MsgCallBack cb) = 0;
+  virtual bool RegisterRouter(const std::string& name, MsgCallBack cb, bool need_auth = false) = 0;
   
   virtual void UnregisterRouter(const std::string& name) = 0;
 
   virtual bool EnableRouter(const std::string& name) = 0;
 
   virtual bool DisableRouter(const std::string& name) = 0;
+
+  virtual bool RegisterAuth(AuthCallBack cb) = 0;
+  
+  virtual void UnregisterAuth() = 0;
+
+  virtual bool EnableAuth(const std::string& name) = 0;
+
+  virtual bool DisableAuth(const std::string& name) = 0;
 };
 
 } // namespace seeker

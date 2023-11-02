@@ -2,13 +2,15 @@
 
 #include <iostream>
 
+#include <log.h>
+
 #include "net/mongoose_service.h"
 
 namespace seeker {
 namespace net {
 
 bool Manager::RegisterService(const std::string& name, 
-                                    TYPE type, INetService::Ptr ptr) {
+                              TYPE type, INetService::Ptr ptr) {
   std::lock_guard<std::mutex> l(mutex_);
   return service_.insert({ name, { ptr, type } }).second;
 }
@@ -22,9 +24,8 @@ void Manager::UnregisterService(const std::string& name) {
 
 void INetService::ListAllService() {
   for (auto& i : net::Mgr::GetInstance().service()) {
-
-    std::cout << "Service Name: " << i.first 
-              << ", Type: " << i.second.Type << std::endl;
+    log::Info() << "Service Name: " << i.first 
+                << ", Type: " << i.second.Type << std::endl;
   }
 }
 

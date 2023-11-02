@@ -87,7 +87,7 @@ void MongooseService::OnMsgCallBack(struct mg_connection* conn, int ev,
     req_meta.Complex.Content = std::string(msg->body.ptr, msg->body.len);
 
     if (th->CallRouter(url, req_meta, resp_meta)) {
-      mg_http_reply(conn, 200, "Content-Type: text/plain\r\n", resp_meta.Complex.Content.c_str());
+      mg_http_reply(conn, resp_meta.Code, "Content-Type: text/plain\r\n", resp_meta.Complex.Content.c_str());
     } else {
       mg_http_reply(conn, 404, "Content-Type: text/plain\r\n", "Not Found");
     }
