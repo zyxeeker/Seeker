@@ -2,7 +2,7 @@
  * @Author: zyxeeker zyxeeker@gmail.com
  * @Date: 2023-10-17 17:08:11
  * @LastEditors: zyxeeker zyxeeker@gmail.com
- * @LastEditTime: 2023-10-31 20:45:38
+ * @LastEditTime: 2023-11-02 18:42:43
  * @Description: 配置模块
  */
 
@@ -16,6 +16,8 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <iostream>
+#include <sstream>
+#include <exception>
 
 #include <nlohmann/json.hpp>
 
@@ -63,18 +65,14 @@ struct ToJsonImpl {
   nlohmann::json operator()(const T& value) {
     nlohmann::json json;
     try {
-      if constexpr (std::is_class<T>::value) {
-        TupleForEach(value.Properties, [&](const auto e) {
-          using ValueType = typename decltype(e)::Type;
-          if constexpr (std::is_class<ValueType>::value) {
-            json[e.Name] = ToJsonImpl<ValueType>()(value.*(e.Member));
-          } else {
-            json[e.Name] = value.*(e.Member);
-          }
-        });
-      } else {
-        json = nlohmann::json(value);
-      }
+      TupleForEach(value.Properties, [&](const auto e) {
+        using ValueType = typename decltype(e)::Type;
+        if constexpr (std::is_class<ValueType>::value) {
+          json[e.Name] = ToJsonImpl<ValueType>()(value.*(e.Member));
+        } else {
+          json[e.Name] = value.*(e.Member);
+        }
+      });
     } catch (...) {
       json = nlohmann::json{};
     }
@@ -89,6 +87,7 @@ struct ToJsonImpl<std::string> {
     try {
       json = nlohmann::json::parse(value);
     } catch(...) {
+      json = nlohmann::json(value);
     }
     return json;
   }
@@ -168,6 +167,9 @@ struct FromJsonImpl<std::string> {
     try {
       str = json.get<std::string>();
     } catch (...) {
+      std::ostringstream oss;
+      oss << json;
+      str = oss.str();
     }
     return str;
   }
