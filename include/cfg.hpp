@@ -2,7 +2,7 @@
  * @Author: zyxeeker zyxeeker@gmail.com
  * @Date: 2023-10-17 17:08:11
  * @LastEditors: zyxeeker zyxeeker@gmail.com
- * @LastEditTime: 2023-11-02 18:42:43
+ * @LastEditTime: 2023-11-07 18:45:12
  * @Description: 配置模块
  */
 
@@ -13,7 +13,6 @@
 #include <tuple>
 #include <vector>
 #include <string>
-#include <unordered_set>
 #include <unordered_map>
 #include <iostream>
 #include <sstream>
@@ -64,32 +63,22 @@ template <typename T>
 struct ToJsonImpl {
   nlohmann::json operator()(const T& value) {
     nlohmann::json json;
-    try {
+    if constexpr (std::is_class<T>::value) {
       TupleForEach(value.Properties, [&](const auto e) {
         using ValueType = typename decltype(e)::Type;
-        if constexpr (std::is_class<ValueType>::value) {
-          json[e.Name] = ToJsonImpl<ValueType>()(value.*(e.Member));
-        } else {
-          json[e.Name] = value.*(e.Member);
-        }
+        json[e.Name] = ToJsonImpl<ValueType>()(value.*(e.Member));
       });
-    } catch (...) {
-      json = nlohmann::json{};
+    } else {
+      json = nlohmann::json(value);
     }
-    return std::move(json);
+    return json;
   }
 };
 
 template <>
 struct ToJsonImpl<std::string> {
   nlohmann::json operator()(const std::string& value) {
-    nlohmann::json json;
-    try {
-      json = nlohmann::json::parse(value);
-    } catch(...) {
-      json = nlohmann::json(value);
-    }
-    return json;
+    return nlohmann::json(value);
   }
 };
 
@@ -98,80 +87,59 @@ struct ToJsonImpl<std::vector<T> > {
   nlohmann::json operator()(const std::vector<T>& value) {
     nlohmann::json json;
     for (auto& i : value) {
-      json.push_back(std::move(ToJsonImpl<T>()(i)));
+      json.emplace_back(ToJsonImpl<T>()(i));
     }
-    return std::move(json);
+    return json;
   }
 };
 
 template <typename T>
-struct ToJsonImpl<std::unordered_set<T> > {
-  nlohmann::json operator()(const std::unordered_set<T>& value) {
-    nlohmann::json json;
-    for (auto& i : value) {
-      json.push_back(std::move(ToJsonImpl<T>()(i)));
-    }
-    return std::move(json);
+static bool ToString(const T& src, std::string& dst) {
+  try {
+    auto res = (nlohmann::json)ToJsonImpl<T>()(src);
+    dst = std::move(nlohmann::to_string(res));
+  } catch (...) {
+    return false;
   }
-};
+  return true;
+}
 
 template <typename T>
-struct ToJsonImpl<std::unordered_map<std::string, T> > {
-  nlohmann::json operator()(const std::unordered_map<std::string, T>& value) {
-    nlohmann::json json;
-    for (auto& i : value) {
-      json[i.first] = std::move(ToJsonImpl<T>()(i.second));
-    }
-    return std::move(json);
+static bool ToJson(const T& src, nlohmann::json& dst) {
+  try {
+    dst = ToJsonImpl<T>()(src);
+  } catch (...) {
+    return false;
   }
-};
-
-template <typename T>
-nlohmann::json ToJson(const T& value) {
-  return ToJsonImpl<T>()(value);
+  return true;
 }
 
 template <typename T>
 struct FromJsonImpl {
   T operator()(const nlohmann::json& json) {
     T value;
-    try {
-      if constexpr (std::is_class<T>::value) {
-        TupleForEach(value.Properties, [&](const auto e) {
-          using ValueType = typename decltype(e)::Type;
-          auto res = json.find(e.Name);
-          if (res == json.end()) {
-            value.*(e.Member) = ValueType {};
-          } else {
-            if constexpr (std::is_class<ValueType>::value) {
-              value.*(e.Member) = FromJsonImpl<ValueType>()(json[e.Name]);
-            } else {
-              value.*(e.Member) = ((nlohmann::json&)json[e.Name]).get<ValueType>();
-            }
-          }
-        });
-      } else {
-        value = json.get<T>();
-      }
-    } catch (...) {
-      value = T{};
+    if constexpr (std::is_class<T>::value) {
+      TupleForEach(value.Properties, [&](const auto e) {
+        using ValueType = typename decltype(e)::Type;
+        auto res = json.find(e.Name);
+        if (res == json.end()) {
+          throw std::runtime_error("prase error: not find key!");
+          value.*(e.Member) = ValueType {};
+        } else {
+          value.*(e.Member) = FromJsonImpl<ValueType>()(json[e.Name]);
+        }
+      });
+    } else {
+      value = json.get<T>();
     }
-    return std::move(value);
+    return value;
   }
 };
 
 template <>
 struct FromJsonImpl<std::string> {
   std::string operator()(const nlohmann::json& json) {
-    std::string str;
-    try {
-      str = json.get<std::string>();
-    } catch (...) {
-      std::ostringstream oss;
-      oss << json;
-      str = oss.str();
-    }
-    return str;
+    return json.get<std::string>();
   }
 };
 
@@ -180,37 +148,33 @@ struct FromJsonImpl<std::vector<T> > {
   std::vector<T> operator()(const nlohmann::json& json) {
     std::vector<T> value;
     for (auto& i : json) {
-      value.push_back(std::move(FromJsonImpl<T>()(i)));
+      value.emplace_back(FromJsonImpl<T>()(i));
     }
-    return std::move(value);
+    return value;
   }
 };
 
-template <typename T>
-struct FromJsonImpl<std::unordered_set<T> > {
-  std::unordered_set<T> operator()(const nlohmann::json& json) {
-    std::unordered_set<T> value;
-    for (auto& i : json) {
-      value.insert(std::move(FromJsonImpl<T>()(i)));
-    }
-    return std::move(value);
-  }
-};
 
 template <typename T>
-struct FromJsonImpl<std::unordered_map<std::string, T> > {
-  std::unordered_map<std::string, T> operator()(const nlohmann::json& json) {
-    std::unordered_map<std::string, T> value;
-    for (auto& i : json.items()) {
-      value.insert({ i.key(), FromJsonImpl<T>()(i.value()) });
-    }
-    return std::move(value);
+static bool FromString(const std::string& src, T& dst) {
+  nlohmann::json json;
+  try {
+    json = nlohmann::json::parse(src);
+    dst = std::move(FromJsonImpl<T>()(json));
+  } catch(...) {
+    return false;
   }
-};
+  return true;
+}
 
 template <typename T>
-T FromJson(const nlohmann::json& json) {
-  return FromJsonImpl<T>()(json);
+static bool FromJson(const nlohmann::json& src, T& dst) {
+  try {
+    dst = std::move(FromJsonImpl<T>()(src));
+  } catch(...) {
+    return false;
+  }
+  return true;
 }
 
 template <typename T>
