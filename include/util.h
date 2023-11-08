@@ -2,7 +2,7 @@
  * @Author: zyxeeker zyxeeker@gmail.com
  * @Date: 2023-06-03 16:44:19
  * @LastEditors: zyxeeker zyxeeker@gmail.com
- * @LastEditTime: 2023-10-31 14:28:01
+ * @LastEditTime: 2023-11-01 17:17:03
  * @Description: 工具辅助类
  */
 
@@ -11,17 +11,6 @@
 
 #include <unistd.h>
 #include <chrono>
-
-namespace seeker {
-/**
- * @brief 线程ID
- */
-using TID = pid_t;
-/**
- * @brief 进程ID
- */
-using PID = pid_t;
-} // seeker
 
 namespace seeker {
 namespace util {
@@ -35,7 +24,7 @@ inline static time_t GetCurTimeStamp() {
 	return timestamp;
 }
 
-} // util
-} // seeker
+} // namespace util
+} // namespace seeker
 
 #endif // __SEEKER_UTIL_H__
