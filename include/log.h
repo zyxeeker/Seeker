@@ -2,18 +2,22 @@
  * @Author: zyxeeker zyxeeker@gmail.com
  * @Date: 2023-05-24 16:28:41
  * @LastEditors: zyxeeker zyxeeker@gmail.com
- * @LastEditTime: 2023-11-01 09:50:34
+ * @LastEditTime: 2023-11-08 20:17:45
  * @Description: 日志模块接口
  */
 
 #ifndef _SEEKER_LOG_H_
 #define _SEEKER_LOG_H_
 
-#include <iostream>
+#include <string.h>
+
 #include <memory>
+#include <vector>
 #include <sstream>
 
 #include "util.h"
+
+#define __FILENAME__ (strrchr(__BASE_FILE__, '/') ? strrchr(__BASE_FILE__, '/') + 1 : __BASE_FILE__)
 
 namespace seeker {
 namespace log {
@@ -33,7 +37,7 @@ namespace log {
  */
 #define LOG_API_PARAM(LoggerName)                     \
   std::string logger_name = LoggerName,               \
-  const char* file_name = __builtin_FILE(),           \
+  const char* file_name = __FILENAME__,              \
   const char* function_name = __builtin_FUNCTION(),   \
   int line_num = __builtin_LINE(),                    \
   uint64_t timestamp = util::GetCurTimeStamp()
@@ -48,6 +52,23 @@ enum LEVEL {
   WARN,
   ERROR,
   FATAL,
+};
+
+enum OUTPUT_TYPE {
+  STD_OUT,
+  FILE_OUT
+};
+
+struct LoggerOutputDefineMeta {
+  OUTPUT_TYPE Type;
+  std::string Path;
+};
+
+struct LoggerDefineMeta {
+  std::string Name;
+  LEVEL Level;
+  std::string FormattingStr;
+  std::vector<LoggerOutputDefineMeta> Output;
 };
 
 /**
@@ -90,6 +111,12 @@ class Log {
  * @brief 设置全局最低输出等级
  */
 void SetMinLogLevel(LEVEL level);
+
+void RegisterLogger(LoggerDefineMeta logger);
+
+void RegisterLogger(std::vector<LoggerDefineMeta> loggers);
+
+void UnregisterLogger(const std::string& name);
 
 /**
  * @brief 日志Debug输出

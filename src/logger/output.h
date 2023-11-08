@@ -2,7 +2,7 @@
  * @Author: zyxeeker zyxeeker@gmail.com
  * @Date: 2023-10-31 16:51:22
  * @LastEditors: zyxeeker zyxeeker@gmail.com
- * @LastEditTime: 2023-11-01 11:18:06
+ * @LastEditTime: 2023-11-07 22:26:56
  * @Description: 
  */
 
@@ -19,18 +19,6 @@ namespace log {
 class Outputer {
  public:
   using Ptr = std::shared_ptr<Outputer>;
-
-  struct Meta {
-    std::string Type;
-    std::string Path;
-
-    DEFINE_PROPERTIES(
-      Meta,
-      PROPERTY_SCHME(Type, "type"),
-      PROPERTY_SCHME(Path, "path")
-    )
-  };
-
   /**
    * @brief 日志输出接口(子模块)
    */
@@ -46,7 +34,7 @@ class Outputer {
 
  public:
   Outputer();
-  Outputer(std::vector<Meta> meta);
+  Outputer(std::vector<LoggerOutputDefineMeta> meta);
 
   /**
    * @brief 添加输出

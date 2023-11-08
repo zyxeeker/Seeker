@@ -2,7 +2,7 @@
  * @Author: zyxeeker zyxeeker@gmail.com
  * @Date: 2023-10-17 17:08:11
  * @LastEditors: zyxeeker zyxeeker@gmail.com
- * @LastEditTime: 2023-11-07 18:45:12
+ * @LastEditTime: 2023-11-08 16:09:21
  * @Description: 配置模块
  */
 
@@ -35,8 +35,8 @@ namespace seeker {
 template <typename Class, typename T>
 struct CfgVarPropertyImpl {
   constexpr CfgVarPropertyImpl(T Class::*member, const char* name)
-      : Member(member), 
-        Name(name) {}
+      : Name(name),
+        Member(member) {}
   using Type = T;
   const char* Name;
   T Class::*Member;
@@ -177,88 +177,86 @@ static bool FromJson(const nlohmann::json& src, T& dst) {
   return true;
 }
 
-template <typename T>
-class CfgVar {
- public:
-  static CfgVar<T>& Get() {
-    static CfgVar<T> _inst;
-    return _inst;
-  }
-  void AddCallBack(std::function<void(T)> cb) {
-    std::lock_guard<std::mutex> l(mutex_);
-    callbacks_.push_back(cb);
-  }
-  void RemoveCallBack(std::function<void(T)> cb) {
-    std::lock_guard<std::mutex> l(mutex_);
-    for (auto i : callbacks_) {
-      if ((*i) == cb) {
-        callbacks_.erase(i);
-        break;
-      }
-    }
-  }
-  void Update(const T& t) {
-    std::lock_guard<std::mutex> l(mutex_);
-    for (auto &i : callbacks_) {
-      (i)(t);
-    }
-  }
-  std::function<void(nlohmann::json)> GetNotifyCallBack() {
-    std::function<void(nlohmann::json)> func = 
-        std::bind(&seeker::CfgVar<T>::Notify, this, std::placeholders::_1);
-    return func;  
-  }
- protected:
-  void Notify(nlohmann::json json) {
-    T value = FromJson<T>(json);
-    {
-      std::lock_guard<std::mutex> l(mutex_); 
-      for (auto &i : callbacks_) {
-        (i)(value);
-      }
-    }
-  }
- private:
-  std::mutex mutex_;
-  std::vector<std::function<void(T)> > callbacks_;
-};
-
 class Cfg {
  public:
-  using JsonChangedEventCallBack = std::function<void(nlohmann::json)>;
+  // enum UPDATE_METHOD {
+  //   UPDATE_BY_CHANGED_NUMS,
+  //   UPDATE_BY_TIME_INTERVAL
+  // };
+  struct Meta {
+    std::string Name;
+    std::string Path;
+    // UPDATE_METHOD UpdateMethod;
+    uint32_t Nums;
+  };
+ public:
+  Cfg(size_t th_size);
+  ~Cfg();
+
+  bool Init(std::initializer_list<Meta>&& list);
+  void Deinit();
+  
   template <typename T>
-  using TypeChangedEventCallBack = std::function<void(T)>;
-
-  static bool Init(const std::string& cfg_path);
-
-  static nlohmann::json Query(const std::string& key);
-
-  template <typename T>
-  static T Query(const std::string& key) {
-    nlohmann::json json = Query(key);
-    return FromJson<T>(json);
+  bool Append(const std::string& cfg_name, const std::string& key, const T& value) {
+    nlohmann::json json;
+    if (!seeker::ToJson(value, json)) {
+      return false;
+    }
+    if (!AppendImpl(cfg_name, key, json)) {
+      return false;
+    }
+    return true;
   }
-
-  static void Update(const std::string& key, const nlohmann::json& json);
-
   template <typename T>
-  static void Update(const std::string& key, const T& value) {
-    Update(key, ToJson(value));
-    seeker::CfgVar<T>::Get().Update(value);
+  bool Query(const std::string& cfg_name, const std::string& key, T& value) {
+    nlohmann::json json;
+    if (!QueryImpl(cfg_name, key, json)) {
+      return false;
+    }
+    if (!seeker::FromJson(json, value)) {
+      std::cout << "convert failed" << std::endl;
+      return false;
+    }
+    return true;
   }
-
-  static void RegisterChangedEvent(const std::string& key, JsonChangedEventCallBack cb);
-
+  template <class C, typename Old, typename New>
+  bool RegisterListener(const std::string& key, 
+                        const std::string& name, C* c, bool (C::*M)(const Old&, New&)) {
+    auto func = [=](const Old& old_value, New& new_value) {
+      return (c->*M)(std::forward<const Old&>(old_value), std::forward<New&>(new_value));
+    };
+    auto cb = [func](const nlohmann::json& old_value, const nlohmann::json& new_value) {
+      Old old_conv_value;
+      New new_conv_value;
+      if (!seeker::FromJson(old_value, old_conv_value) || 
+          !seeker::FromJson(new_value, new_conv_value)) {
+        return false;
+      }
+      return func(old_conv_value, new_conv_value);
+    };
+    return RegisterListenerImpl(key, name, cb);
+  }
+  bool UnregisterListener(const std::string& key, const std::string& name) {
+    return UnregisterListenerImpl(key, name);
+  }
   template <typename T>
-  static void RegisterChangedEvent(const std::string& key, TypeChangedEventCallBack<T> cb) {
-    CfgVar<T>::Get().AddCallBack(cb);
-    RegisterChangedEvent(key, CfgVar<T>::Get().GetNotifyCallBack());
+  bool Update(const std::string& cfg_name, const std::string& key, const T& value) {
+    nlohmann::json json;
+    if (!seeker::ToJson(value, json)) {
+      return false;
+    }
+    return UpdateImpl(cfg_name, key, json);
   }
-
-  template <typename T>
-  static void UnRegisterChangedEvent(TypeChangedEventCallBack<T> cb) {
-    CfgVar<T>::Get().RemoveCallBack(cb);
-  }
+ private:
+  bool QueryImpl(const std::string& cfg_name, const std::string& key, nlohmann::json& value);
+  bool AppendImpl(const std::string& cfg_name, const std::string& key, nlohmann::json& value);
+  bool UpdateImpl(const std::string& cfg_name, const std::string& key, const nlohmann::json value);
+  bool RegisterListenerImpl(const std::string& key, const std::string& name,
+                            std::function<bool(const nlohmann::json&, const nlohmann::json&)> cb);
+  bool UnregisterListenerImpl(const std::string& key, const std::string& name);
+ private:
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 
 } // namespace seeker

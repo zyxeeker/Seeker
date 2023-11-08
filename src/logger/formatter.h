@@ -2,7 +2,7 @@
  * @Author: zyxeeker zyxeeker@gmail.com
  * @Date: 2023-10-31 16:17:54
  * @LastEditors: zyxeeker zyxeeker@gmail.com
- * @LastEditTime: 2023-11-01 11:17:25
+ * @LastEditTime: 2023-11-08 18:40:00
  * @Description: 
  */
 
@@ -24,9 +24,9 @@ namespace level {
 
 static std::string ToString(log::LEVEL l) {
     switch (l) {
-#define TRANS(name) \
-  case log::LEVEL::name:\
-      return #name;
+#define TRANS(LEVEL_NAME) \
+  case log::LEVEL::LEVEL_NAME:\
+      return #LEVEL_NAME;
 
   TRANS(DEBUG)
   TRANS(INFO)
@@ -40,9 +40,9 @@ static std::string ToString(log::LEVEL l) {
 }
 
 static log::LEVEL FromString(std::string l_str) {
-#define TRANS(level) \
-  if (l_str == #level) \
-    return log::LEVEL::level;
+#define TRANS(LEVEL_NAME) \
+  if (l_str == #LEVEL_NAME) \
+    return log::LEVEL::LEVEL_NAME;
 
   TRANS(DEBUG)
   TRANS(INFO)

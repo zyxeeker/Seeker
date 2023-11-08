@@ -2,7 +2,7 @@
  * @Author: zyxeeker zyxeeker@gmail.com
  * @Date: 2023-06-06 11:36:44
  * @LastEditors: zyxeeker zyxeeker@gmail.com
- * @LastEditTime: 2023-11-01 11:48:43
+ * @LastEditTime: 2023-11-08 16:09:45
  * @Description: 配置管理具体实现
  */
 
@@ -11,47 +11,60 @@
 
 #include <mutex>
 #include <thread>
+#include <vector>
 #include <memory>
 #include <condition_variable>
 
 #include <nlohmann/json.hpp>
 
 #include "../include/cfg.hpp"
-
-#include "util.hpp"
-
-#include "io/cfg_io.hpp"
+#include "../include/thread.hpp"
 
 namespace seeker {
-namespace cfg {
 
-class Manager {
+class Cfg::Impl {
+  struct Listener {
+    std::string Name;
+    std::function<bool(const nlohmann::json&, const nlohmann::json&)> CallBack;
+  };
+
+  struct JsonMeta {
+    struct Cfg::Meta Info;
+    bool Changed;
+    nlohmann::json Data;
+  };
  public:
-  Manager();
-  ~Manager();
+  Impl(size_t th_nums);
+  ~Impl();
 
-  bool Start(const std::string& path);
-  void Register(const std::string& key, 
-                std::function<void(nlohmann::json)> cb);
-  void Unregister(const std::string& key);
-  nlohmann::json Query(const std::string& key);
-  void Update(const std::string& key, const nlohmann::json& json);
-  void Notify(const std::string& key, const nlohmann::json& json);
-
+  bool Init(std::initializer_list<Meta>&& list);
+  void Deinit();
+  bool Query(const std::string& cfg_name, const std::string& key, nlohmann::json& value);
+  bool Append(const std::string& cfg_name, const std::string& key, nlohmann::json& value);
+  bool Update(const std::string& cfg_name, const std::string& key, const nlohmann::json value);
+  bool RegisterListener(const std::string& key, const std::string& name,
+                        std::function<bool(const nlohmann::json&, const nlohmann::json&)> cb);
+  bool UnregisterListener(const std::string& key, const std::string& name);
  private:
-  std::mutex callback_ops_mutex_;
-  std::mutex data_ops_mutex_;
+  bool CheckExist(const std::string& cfg_name, const std::string& key, 
+                  std::unordered_map<std::string, JsonMeta>::iterator& cfg,
+                  nlohmann::json::iterator& json);
+  bool ReadFile(std::vector<Meta>& list);
+  bool WriteFile();
+  // TODO: Modify In Future
+  void WriterThread();
 
-  nlohmann::json data_;
-  std::unordered_map<std::string, 
-                     std::function<void(nlohmann::json)> > callbacks_;
-
-  std::shared_ptr<FileService> file_;
+  void UpdateTask(const std::string cfg_name, const std::string key, const nlohmann::json value);
+ private:
+  bool start_;
+  std::mutex mutex_;
+  std::unordered_map<std::string, std::vector<Listener> > listeners_;
+  std::unordered_map<std::string, JsonMeta> jsons_;
+  std::unique_ptr<seeker::ThreadPool> th_;
+  // TODO: Modify In Future
+  std::thread writer_;
 };
 
-using Mgr = util::Single<Manager>;
-
-} // namespace cfg
 } // namespace seeker
 
 #endif // __SEEKER_SRC_CFG__

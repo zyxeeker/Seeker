@@ -9,6 +9,13 @@
 #define DEFAULT_DATETIME_PATTERN      "%Y-%m-%d %H:%M"
 #define EMPTY_PARAM                   ""
 
+#define CONSOLE_RED                   "\e[1;31m"
+#define CONSOLE_GREEN                 "\e[1;32m"
+#define CONSOLE_YELLOW                "\e[1;33m"
+#define CONSOLE_BLUE                  "\e[1;34m"
+#define CONSOLE_PINK                  "\e[1;35m"
+#define CONSOLE_END                   "\e[0m"
+
 namespace seeker {
 namespace log {
 
@@ -31,7 +38,24 @@ class LevelItem : public Formatter::IItem {
   void ToStream(std::ostream &os, 
                 const Logger::Ptr logger, 
                 const Event::Ptr event_ptr) override {
-    os << level::ToString(event_ptr->Level);
+    auto level_str = level::ToString(event_ptr->Level);
+    switch (event_ptr->Level) {
+#define TRANS(LEVEL_NAME, COLOR) \
+      case log::LEVEL::LEVEL_NAME: \
+        os << COLOR << level_str; \
+        break;
+
+      TRANS(DEBUG, CONSOLE_PINK)
+      TRANS(INFO, CONSOLE_BLUE)
+      TRANS(WARN, CONSOLE_YELLOW)
+      TRANS(ERROR, CONSOLE_RED)
+      TRANS(FATAL, CONSOLE_RED)
+#undef TRANS
+      default:
+        os << level_str; \
+        break;
+    }
+    os << CONSOLE_END;
   }
 };
 

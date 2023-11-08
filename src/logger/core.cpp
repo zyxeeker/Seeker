@@ -18,9 +18,9 @@ Logger::Logger(std::string name, LEVEL level)
       outputer_(new Outputer()) {}
 
 
-Logger::Logger(Meta meta)
+Logger::Logger(LoggerDefineMeta meta)
     : name_(meta.Name),
-      level_(level::FromString(meta.Level)),
+      level_(meta.Level),
       formatter_(new Formatter(meta.FormattingStr)),
       outputer_(new Outputer(meta.Output)) {}
 
@@ -53,12 +53,6 @@ Manager::Manager()
     throw LogicError::Create(MODULE_NAME, 
                              "Logger(" + default_logger_->name() + ") failed to initialize");
   }
-  std::function<void(std::vector<Logger::Meta>)> func = std::bind(&Manager::OnCfgChanged, this, std::placeholders::_1);
-  seeker::Cfg::RegisterChangedEvent<std::vector<Logger::Meta> >("logger", func);
-  // 查询
-  auto res = Cfg::Query<std::vector<Logger::Meta> >("logger");
-  // 设置值并触发更新
-  CfgVar<std::vector<Logger::Meta> >::Get().Update(res);
 }
 
 void Manager::Output(const std::string& key, const Event::Ptr& event) {
@@ -73,17 +67,18 @@ void Manager::Output(const std::string& key, const Event::Ptr& event) {
   logger->Output(event);
 }
 
-void Manager::AddLogger(Logger::Ptr ptr) {
+void Manager::AddLogger(LoggerDefineMeta&& logger) {
   std::lock_guard<std::mutex> l(mutex_);
-  loggers_[ptr->name()] = ptr;
+  auto logger_ptr = std::make_shared<Logger>(logger);
+  try {
+    logger_ptr->Init();
+  } catch (...) {
+    logger_ptr->set_formatter(default_logger_->formatter());
+  }
+  loggers_[logger_ptr->name()] = logger_ptr;
 }
 
-void Manager::DeleteLogger(const std::string& logger_name) {
-  std::lock_guard<std::mutex> l(mutex_);
-  loggers_.erase(logger_name);
-}
-
-void Manager::OnCfgChanged(std::vector<Logger::Meta> meta) {
+void Manager::AddLogger(std::vector<LoggerDefineMeta>&& meta) {
   for (auto& i : meta) {
   // 如果日志名为空则跳过
   if (i.Name.length() == 0)
@@ -100,16 +95,15 @@ void Manager::OnCfgChanged(std::vector<Logger::Meta> meta) {
     }
     std::cout << "---- -------- ----" << std::endl;
 #endif
-
-    auto logger_ptr = std::make_shared<Logger>(i);
-    try {
-      logger_ptr->Init();
-    } catch (...) {
-      logger_ptr->set_formatter(default_logger_->formatter());
-    }
-    AddLogger(logger_ptr);
+    AddLogger(std::forward<LoggerDefineMeta>(i));
   }
 }
+
+void Manager::DeleteLogger(const std::string& logger_name) {
+  std::lock_guard<std::mutex> l(mutex_);
+  loggers_.erase(logger_name);
+}
+
 //// Manager End
 
 } // namespace log

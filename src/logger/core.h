@@ -27,7 +27,7 @@
 
 
 #define DEFAULT_LOGGER_NAME           "root"
-#define DEFAULT_FORMATTER_PATTERN     "%d [%P](%r){%F:%L(%N)} %m"
+#define DEFAULT_FORMATTER_PATTERN     "%d [%P](%r)[%F:%L] %m"
 
 namespace seeker {
 namespace log {
@@ -80,25 +80,8 @@ class Logger : public std::enable_shared_from_this<Logger> {
  public:
   using Ptr = std::shared_ptr<Logger>;
 
-  struct Meta {
-    std::string Name;
-    std::string Level;
-    std::string FormattingStr;
-    std::vector<Outputer::Meta> Output;
-
-    DEFINE_PROPERTIES(
-      Meta,
-      PROPERTY_SCHME(Name, "name"),
-      PROPERTY_SCHME(Level, "level"),
-      PROPERTY_SCHME(FormattingStr, "format"),
-      PROPERTY_SCHME(Output, "output")
-    )
-  };
-
- public:
   Logger(std::string name, LEVEL level);
-
-  Logger(Meta meta);
+  Logger(LoggerDefineMeta meta);
 
   void Init();
 
@@ -186,7 +169,8 @@ class Manager {
   /**
    * @brief 添加日志器
    */
-  void AddLogger(Logger::Ptr l);
+  void AddLogger(LoggerDefineMeta&& logger);
+  void AddLogger(std::vector<LoggerDefineMeta>&& loggers);
   /**
    * @brief 删除指定日志器
    */
@@ -212,9 +196,6 @@ class Manager {
   }
 
  private:
-  void OnCfgChanged(std::vector<Logger::Meta> cfg);
-
- private:
   /**
    * @brief 默认日志器
    */
@@ -227,10 +208,6 @@ class Manager {
   * @brief 日志器字典
   */
   std::unordered_map<std::string, Logger::Ptr> loggers_;
-  /**
-   * @brief 从配置文件解析得到的日志器参数
-   */
-  std::vector<Logger::Meta> logger_meta_;
 
   std::mutex mutex_;
 };

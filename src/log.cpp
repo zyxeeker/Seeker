@@ -46,8 +46,8 @@ void SetMinLogLevel(LEVEL level) {
             .FunctionName   = std::move(function_name),   \
             .Line           = std::move(line_num),        \
             .Timestamp      = std::move(timestamp),       \
-            .ThreadId       = th::GetThreadId(),          \
-            .ThreadName     = th::GetThreadName(),        \
+            .ThreadId       = 0,                          \
+            .ThreadName     = "",                         \
         }),                                               \
         std::move(logger_name));                          \
   }                                                       \
@@ -58,6 +58,18 @@ void SetMinLogLevel(LEVEL level) {
   LOG_API_IMPLEMENT(Error,  LEVEL::ERROR)
   LOG_API_IMPLEMENT(Fatal,  LEVEL::FATAL)
 #undef LOG_API_IMPLEMENT
+
+void RegisterLogger(std::vector<LoggerDefineMeta> loggers) {
+  log::Mgr::GetInstance().AddLogger(std::forward<std::vector<LoggerDefineMeta> >(loggers));
+}
+
+void RegisterLogger(LoggerDefineMeta logger) {
+  log::Mgr::GetInstance().AddLogger(std::forward<LoggerDefineMeta>(logger));
+}
+
+void UnregisterLogger(const std::string& name) {
+  log::Mgr::GetInstance().DeleteLogger(name);
+}
 
 } // namespace log
 } // namespace seeker

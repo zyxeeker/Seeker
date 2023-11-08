@@ -36,12 +36,12 @@ Outputer::Outputer() {
   AddItem(ptr);
 }
 
-Outputer::Outputer(std::vector<Meta> meta) {
+Outputer::Outputer(std::vector<LoggerOutputDefineMeta> meta) {
   for (auto& i : meta) {
     IItem::Ptr ptr = nullptr;
-    if (i.Type == "file") {
+    if (i.Type == FILE_OUT) {
       ptr = std::make_shared<FileOutput>(i.Path);
-    } else if (i.Type == "std") {
+    } else if (i.Type == STD_OUT) {
       ptr = std::make_shared<StdOutput>();
     }
     if (ptr) {
