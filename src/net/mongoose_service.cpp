@@ -19,8 +19,8 @@ IHttpService::METHOD GetMethod(struct mg_str* src) {
   return IHttpService::UNKNOWN;
 }
 
-MongooseService::MongooseService(uint16_t port)
-    : base::HttpServiceBase(port) {}
+MongooseService::MongooseService(uint16_t port, bool auth)
+    : base::HttpServiceBase(port, auth) {}
 
 MongooseService::~MongooseService() = default;
 
@@ -85,11 +85,11 @@ void MongooseService::OnMsgCallBack(struct mg_connection* conn, int ev,
     }
     
     req_meta.Complex.Content = std::string(msg->body.ptr, msg->body.len);
-
-    if (th->CallRouter(url, req_meta, resp_meta)) {
-      mg_http_reply(conn, resp_meta.Code, "Content-Type: text/plain\r\n", resp_meta.Complex.Content.c_str());
+    if (th->CallRouter(req_meta, resp_meta)) {
+      // TODO: Need Change Content-Type 
+      mg_http_reply(conn, resp_meta.Code, "Content-Type: application/json\r\n", resp_meta.Complex.Content.c_str());
     } else {
-      mg_http_reply(conn, 404, "Content-Type: text/plain\r\n", "Not Found");
+      mg_http_reply(conn, 500, "Content-Type: text/plain\r\n", "Server Internal Error");
     }
   }
 }

@@ -29,8 +29,9 @@ void INetService::ListAllService() {
   }
 }
 
-IHttpService::WPtr IHttpService::Create(const std::string& name, uint16_t port) {
-  auto ptr = std::make_shared<MongooseService>(port);
+IHttpService::WPtr IHttpService::Create(const std::string& name, 
+                                        uint16_t port, bool auth) {
+  auto ptr = std::make_shared<MongooseService>(port, auth);
   auto res = net::Mgr::GetInstance().RegisterService(
                 name, net::Manager::SERVICE_HTTP, 
                 std::dynamic_pointer_cast<INetService>(ptr));
