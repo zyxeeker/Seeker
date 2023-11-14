@@ -55,6 +55,7 @@ bool Cfg::Impl::Append(const std::string& cfg_name, const std::string& key, nloh
     return false;
   }
   cfg->second.Data[key] = value;
+  cfg->second.Changed = true;
   return true;
 }
 

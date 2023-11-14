@@ -2,7 +2,7 @@
  * @Author: zyxeeker zyxeeker@gmail.com
  * @Date: 2023-10-25 09:12:19
  * @LastEditors: zyxeeker zyxeeker@gmail.com
- * @LastEditTime: 2023-11-08 15:30:32
+ * @LastEditTime: 2023-11-14 10:47:06
  * @Description: 网络服务基本接口
  */
 
@@ -49,23 +49,21 @@ class IHttpService : public INetService {
     std::string Value;
   };
 
-  struct MsgMetaComplex {
+  typedef struct MsgMetaComplex {
     std::vector<HeaderMeta> Headers;
     std::string Content;
-  };
+  } ReqMsgMeta, RespMsgMeta;
 
-  struct ReqMsgMeta {
+  struct ReqMeta {
     METHOD Method;
     std::string Url;
     MsgMetaComplex Complex;
   };
 
-  struct RespMsgMeta {
+  struct RespMeta {
     uint32_t Code;
     MsgMetaComplex Complex;
   };
-
-  using RouterCallBack = std::function<bool(const ReqMsgMeta&, RespMsgMeta&)>;
 
   class RouterBase {
    public:
@@ -73,8 +71,12 @@ class IHttpService : public INetService {
     enum HANDLER_RESULT {
       HANDLER_OK,
       HANDLER_BAD_CONVERT,
-      HANDLER_WRONG_METHOD,
+      HANDLER_NOT_FOUND,
+      HANDLER_UNAUTHORIZED,
+      HANDLER_FORBIDDEN
     };
+
+    using HandlerCallback = std::function<HANDLER_RESULT(const ReqMsgMeta&, RespMsgMeta&)>;
 
     struct Meta {
       using WPtr = std::weak_ptr<Meta>;
@@ -83,19 +85,27 @@ class IHttpService : public INetService {
       std::string Name;
       METHOD Method;
       bool Enabled;
-      std::function<HANDLER_RESULT(const std::string&, std::string&)> Handler;
+      HandlerCallback Handler;
     };
-    
+
    public:
     RouterBase(const std::string& preffix) : preffix_(preffix) {}
     virtual ~RouterBase() = default;
 
-    template <class C, typename Ret, typename ...Args>
-    bool RegisterGet(const std::string& name, C* c, Ret (C::*m)(Args...));
+    bool Register(const std::string& name, METHOD method, HandlerCallback handler) {
+      meta_.emplace_back(Meta::Ptr(new Meta{ name, method, true, handler }));
+      return true;
+    }
 
-    template <class C, typename Ret, typename ...Args>
-    bool RegisterInvoke(const std::string& name, METHOD method, C* c, Ret (C::*m)(Args...));
-    
+    void UnRegister(const std::string& name) {
+      for (auto i = meta_.begin(); i != meta_.end(); i++) {
+        if ((*i)->Name == name) {
+          meta_.erase(i);
+          return;
+        }
+      }
+    }
+
     const std::string& preffix() const { return preffix_; }
     const std::vector<Meta::Ptr>& meta() const { return meta_; }
 
@@ -104,28 +114,10 @@ class IHttpService : public INetService {
     std::vector<Meta::Ptr> meta_;
   };
 
-  class AuthRouterBase : public RouterBase {
-   public:
-    using Ptr = std::shared_ptr<AuthRouterBase>;
-    using WPtr = std::weak_ptr<AuthRouterBase>;
-
-    enum AUTH_RESULT {
-      OK            = 0,
-      UNAUTHORIZED,
-      FORBIDDEN
-    };
-
-    AuthRouterBase(const std::string& preffix) : RouterBase(preffix) {}
-    virtual ~AuthRouterBase() = default;
-
-    virtual AUTH_RESULT OnTokenCallBack(const std::string& router, 
-                                        METHOD method, const std::string& token) = 0;
-  };
-
  public:
   virtual ~IHttpService() = default;
 
-  static WPtr Create(const std::string& name, uint16_t port, bool auth = false);
+  static WPtr Create(const std::string& name, uint16_t port);
 
   static void Destory(const std::string& name);
 
@@ -133,51 +125,8 @@ class IHttpService : public INetService {
   
   virtual void UnregisterRouter(RouterBase::Ptr router) = 0;
 
-  virtual bool RegisterAuthRouter(AuthRouterBase::Ptr router) = 0;
-  
-  virtual void UnregisterAuthRouter() = 0;
-
   virtual void ListAllRouter() = 0;
 };
-
-template <class C, typename Ret, typename ...Args>
-bool IHttpService::RouterBase::RegisterGet(const std::string& name, C* c, Ret (C::*m)(Args...)) {
-  std::function<Ret(Args...)> func = [=](auto&&... args) { return (c->*m)(std::forward<decltype(args)>(args)...); };
-
-  auto cb = [func](const std::string& req, std::string& resp) {
-    auto data = func();
-    if (!seeker::ToString<Ret>(data, resp)) {
-      return HANDLER_BAD_CONVERT;
-    }
-    return HANDLER_OK;
-  };
-  meta_.push_back(Meta::Ptr(new Meta{ name, GET, true, cb }));
-  return true;
-}
-
-template <class C, typename Ret, typename ...Args>
-bool IHttpService::RouterBase::RegisterInvoke(const std::string& name, METHOD method, C* c, Ret (C::*m)(Args...)) {
-  std::function<Ret(Args...)> func = [=](auto&&... args) { return (c->*m)(std::forward<decltype(args)>(args)...); };
-
-  using ArgTypes = std::tuple<Args...>;
-  using ValueElementType = typename std::tuple_element<0, ArgTypes>::type;
-  using ValueType = typename std::remove_reference<ValueElementType>::type;
-
-  auto cb = [func](const std::string& req, std::string& resp) {
-    ValueType value;
-
-    if (!seeker::FromString(req, value)) {
-      return HANDLER_BAD_CONVERT;
-    }
-    auto res = func(value);
-    if (!seeker::ToString<Ret>(res, resp)) {
-      return HANDLER_BAD_CONVERT;
-    }
-    return HANDLER_OK;
-  };
-  meta_.push_back(Meta::Ptr(new Meta{ name, method, true, cb }));
-  return true;
-}
 
 } // namespace seeker
 

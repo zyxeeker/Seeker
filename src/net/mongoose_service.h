@@ -2,7 +2,7 @@
  * @Author: zyxeeker zyxeeker@gmail.com
  * @Date: 2023-10-25 12:59:51
  * @LastEditors: zyxeeker zyxeeker@gmail.com
- * @LastEditTime: 2023-11-08 11:49:24
+ * @LastEditTime: 2023-11-10 14:35:33
  * @Description: 
  */
 
@@ -29,7 +29,7 @@ namespace seeker {
 #ifdef MONGOOSE
 class MongooseService : public base::HttpServiceBase {
  public:
-  MongooseService(uint16_t port, bool auth);
+  MongooseService(uint16_t port);
   ~MongooseService();
 
   bool Start() override;

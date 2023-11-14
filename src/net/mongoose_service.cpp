@@ -1,3 +1,10 @@
+/*
+ * @Author: zyxeeker zyxeeker@gmail.com
+ * @Date: 2023-10-25 12:59:56
+ * @LastEditors: zyxeeker zyxeeker@gmail.com
+ * @LastEditTime: 2023-11-10 14:35:08
+ * @Description: 
+ */
 #include "mongoose_service.h"
 
 #include <cstring>
@@ -19,8 +26,8 @@ IHttpService::METHOD GetMethod(struct mg_str* src) {
   return IHttpService::UNKNOWN;
 }
 
-MongooseService::MongooseService(uint16_t port, bool auth)
-    : base::HttpServiceBase(port, auth) {}
+MongooseService::MongooseService(uint16_t port)
+    : base::HttpServiceBase(port) {}
 
 MongooseService::~MongooseService() = default;
 
@@ -69,8 +76,8 @@ void MongooseService::OnMsgCallBack(struct mg_connection* conn, int ev,
     }
     auto url = std::string(msg->uri.ptr + 1, msg->uri.len - 1);
   
-    ReqMsgMeta req_meta {};
-    RespMsgMeta resp_meta {};
+    ReqMeta req_meta {};
+    RespMeta resp_meta {};
     req_meta.Method = GetMethod(&(msg->method));
     req_meta.Url = url;
     for (int i = 0; i < MG_MAX_HTTP_HEADERS; i++) {
@@ -86,8 +93,11 @@ void MongooseService::OnMsgCallBack(struct mg_connection* conn, int ev,
     
     req_meta.Complex.Content = std::string(msg->body.ptr, msg->body.len);
     if (th->CallRouter(req_meta, resp_meta)) {
-      // TODO: Need Change Content-Type 
-      mg_http_reply(conn, resp_meta.Code, "Content-Type: application/json\r\n", resp_meta.Complex.Content.c_str());
+      std::ostringstream oss;
+      for (auto &i : resp_meta.Complex.Headers) {
+        oss << i.Key << ": " << i.Value << "\r\n";
+      }
+      mg_http_reply(conn, resp_meta.Code, oss.str().c_str(), resp_meta.Complex.Content.c_str());
     } else {
       mg_http_reply(conn, 500, "Content-Type: text/plain\r\n", "Server Internal Error");
     }
