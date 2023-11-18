@@ -2,7 +2,7 @@
  * @Author: zyxeeker zyxeeker@gmail.com
  * @Date: 2023-10-25 10:02:24
  * @LastEditors: zyxeeker zyxeeker@gmail.com
- * @LastEditTime: 2023-11-01 11:29:52
+ * @LastEditTime: 2023-11-18 11:18:15
  * @Description: 网络接口具体实现
  */
 
@@ -28,17 +28,15 @@ class Manager {
   };
 
   struct ServiceMeta {
-    INetService::Ptr Ptr;
+    INetService::WPtr WPtr;
     TYPE Type;
   };
 
  public:
-  bool RegisterService(const std::string& name, TYPE type, INetService::Ptr ptr);
+  bool RegisterService(const std::string& name, TYPE type, INetService::WPtr ptr);
   void UnregisterService(const std::string& name);
+  void ListService();
 
-  inline const std::unordered_map<std::string, ServiceMeta>& service() const {
-    return service_;
-  }
  private:
   std::mutex mutex_;
   std::unordered_map<std::string, ServiceMeta> service_;

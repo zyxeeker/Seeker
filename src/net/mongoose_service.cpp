@@ -1,10 +1,3 @@
-/*
- * @Author: zyxeeker zyxeeker@gmail.com
- * @Date: 2023-10-25 12:59:56
- * @LastEditors: zyxeeker zyxeeker@gmail.com
- * @LastEditTime: 2023-11-10 14:35:08
- * @Description: 
- */
 #include "mongoose_service.h"
 
 #include <cstring>
@@ -26,12 +19,11 @@ IHttpService::METHOD GetMethod(struct mg_str* src) {
   return IHttpService::UNKNOWN;
 }
 
-MongooseService::MongooseService(uint16_t port)
-    : base::HttpServiceBase(port) {}
+MongooseService::MongooseService() = default;
 
 MongooseService::~MongooseService() = default;
 
-bool MongooseService::Start() {
+bool MongooseService::Start(uint16_t port) {
   if (start_) {
     return true;
   }
@@ -39,7 +31,7 @@ bool MongooseService::Start() {
   mg_mgr_init(&mgr_);
   // address
   std::string address = "0.0.0.0:";
-  address.append(std::to_string(port()));
+  address.append(std::to_string(port));
   // listen
   auto conn = mg_http_listen(&mgr_, address.c_str(), OnMsgCallBack, this);
   if (conn == nullptr) {
@@ -58,6 +50,10 @@ void MongooseService::Stop() {
   msg_loop_.join();
 }
 
+void MongooseService::SetWebSite(const std::string& path)  {
+  web_dir_ = path;
+}
+
 void MongooseService::MsgLoop() {
   while (start_) {
     mg_mgr_poll(&mgr_, 10);
@@ -68,18 +64,17 @@ void MongooseService::MsgLoop() {
 void MongooseService::OnMsgCallBack(struct mg_connection* conn, int ev, 
                                     void *ev_data, void *fn_data) {
   auto th = (MongooseService*)fn_data;
+
   if (ev == MG_EV_HTTP_MSG) {
     struct mg_http_message *msg = (struct mg_http_message *) ev_data;
-    if (msg->uri.len == 1) {
-      mg_http_reply(conn, 502, "Content-Type: text/plain\r\n", "Bad Request");
-      return;
-    }
+    
     auto url = std::string(msg->uri.ptr + 1, msg->uri.len - 1);
   
     ReqMeta req_meta {};
     RespMeta resp_meta {};
     req_meta.Method = GetMethod(&(msg->method));
     req_meta.Url = url;
+    req_meta.Query = std::string(msg->query.ptr, msg->query.len);
     for (int i = 0; i < MG_MAX_HTTP_HEADERS; i++) {
       const auto header_ptr = msg->headers + i;
       if (header_ptr->name.len == 0) {
@@ -99,7 +94,14 @@ void MongooseService::OnMsgCallBack(struct mg_connection* conn, int ev,
       }
       mg_http_reply(conn, resp_meta.Code, oss.str().c_str(), resp_meta.Complex.Content.c_str());
     } else {
-      mg_http_reply(conn, 500, "Content-Type: text/plain\r\n", "Server Internal Error");
+      if (th->web_dir_.empty()) {
+        mg_http_reply(conn, 500, "Content-Type: text/plain\r\n", "Server Internal Error");
+      } else {
+        // web
+        struct mg_http_serve_opts opts;
+        opts = mg_http_serve_opts { .root_dir = th->web_dir_.c_str()};
+        mg_http_serve_dir(conn, msg, &opts);
+      }
     }
   }
 }

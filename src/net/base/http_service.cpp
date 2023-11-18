@@ -5,8 +5,7 @@
 namespace seeker {
 namespace base {
 
-HttpServiceBase::HttpServiceBase(uint16_t port)
-    : port_(port) {}
+HttpServiceBase::HttpServiceBase() = default;
 
 HttpServiceBase::~HttpServiceBase() = default;
 
@@ -24,26 +23,31 @@ void HttpServiceBase::UnregisterRouter(RouterBase::Ptr router) {
 
 void HttpServiceBase::ListAllRouter() {
   for (auto& i : router_) {
-    std::cout << i.first << std::endl;
+    log::Info() << i.first << std::endl;
   }
 }
 
 bool HttpServiceBase::CallRouter(const ReqMeta& req, RespMeta& resp) {
   std::lock_guard<std::mutex> l(mutex_);
-  resp.Code = 404;
 
   auto res = router_.find(req.Url);
   if (res == router_.end()) {
-    return true;
+    return false;
   }
 
   RouterBase::Meta::Ptr ptr;
   for (auto &i : res->second) {
     if (!i.Router.expired()) {
       ptr = i.Router.lock();
-      if (ptr->Enabled && (req.Method & ptr->Method)) {
-        break;
+      if (ptr->Enabled) {
+        if (req.Method & ptr->Method) {
+          break;
+        } else {
+          resp.Code = 405;
+          ptr.reset();
+        }
       } else {
+        resp.Code = 404;
         ptr.reset();
       }
     }

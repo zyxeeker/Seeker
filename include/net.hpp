@@ -2,7 +2,7 @@
  * @Author: zyxeeker zyxeeker@gmail.com
  * @Date: 2023-10-25 09:12:19
  * @LastEditors: zyxeeker zyxeeker@gmail.com
- * @LastEditTime: 2023-11-14 10:47:06
+ * @LastEditTime: 2023-11-18 15:46:09
  * @Description: 网络服务基本接口
  */
 
@@ -27,7 +27,7 @@ class INetService {
  public:
   virtual ~INetService() = default;
 
-  virtual bool Start() = 0;
+  virtual bool Start(uint16_t port) = 0;
   
   virtual void Stop() = 0; 
 };
@@ -57,6 +57,7 @@ class IHttpService : public INetService {
   struct ReqMeta {
     METHOD Method;
     std::string Url;
+    std::string Query;
     MsgMetaComplex Complex;
   };
 
@@ -117,15 +118,15 @@ class IHttpService : public INetService {
  public:
   virtual ~IHttpService() = default;
 
-  static WPtr Create(const std::string& name, uint16_t port);
-
-  static void Destory(const std::string& name);
+  static Ptr Create(const std::string& name);
 
   virtual bool RegisterRouter(RouterBase::Ptr router) = 0;
   
   virtual void UnregisterRouter(RouterBase::Ptr router) = 0;
 
   virtual void ListAllRouter() = 0;
+
+  virtual void SetWebSite(const std::string& path) = 0;
 };
 
 } // namespace seeker
