@@ -2,7 +2,7 @@
  * @Author: zyxeeker zyxeeker@gmail.com
  * @Date: 2023-10-25 14:12:10
  * @LastEditors: zyxeeker zyxeeker@gmail.com
- * @LastEditTime: 2023-11-18 11:31:36
+ * @LastEditTime: 2023-11-22 09:35:21
  * @Description: 
  */
 
@@ -19,11 +19,6 @@ class HttpServiceBase : public IHttpService {
     RouterBase::Meta::WPtr Router;
   };
  public:
-  enum CALL_RESULT {
-    NOT_FOUND,
-    UNSUPPORT,
-    OK,
-  };
   HttpServiceBase();
   ~HttpServiceBase();
 
@@ -34,17 +29,21 @@ class HttpServiceBase : public IHttpService {
   void UnregisterRouter(RouterBase::Ptr router) override;
   void ListAllRouter() override;
 
-  virtual void SetWebSite(const std::string& path) = 0;
+  virtual void SetWebSite(const std::string &path) = 0;
 
-  bool CallRouter(const ReqMeta& req, RespMeta& resp);
-
+  bool QueryRouter(const std::string &url, RouterBase::Meta::Ptr &ptr);
+  bool CallRouter(const RouterBase::Meta::Ptr &ptr, const ReqMeta &req, RespMeta &resp);
+  bool CallFileRouter(const RouterBase::Meta::Ptr &ptr, 
+                      const ReqMeta &req, RespMeta &resp,
+                      const std::string name, const char* buff, size_t len);
  private:
   bool RegisterRouterImpl(RouterBase::Ptr router);
+  bool CheckRouterResult(RouterBase::HANDLER_RESULT code, RespMeta &resp);
   
  private:
   std::mutex mutex_;
 
-  std::unordered_map<std::string, std::vector<RouterMeta> > router_;
+  std::unordered_map<std::string, std::vector<RouterBase::Meta::WPtr> > router_;
 };
 
 } // namespace base

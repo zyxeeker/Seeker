@@ -2,7 +2,7 @@
  * @Author: zyxeeker zyxeeker@gmail.com
  * @Date: 2023-10-25 12:59:51
  * @LastEditors: zyxeeker zyxeeker@gmail.com
- * @LastEditTime: 2023-11-18 15:45:45
+ * @LastEditTime: 2023-11-21 12:45:04
  * @Description: 
  */
 
@@ -47,6 +47,7 @@ class MongooseService : public base::HttpServiceBase {
 
   struct mg_mgr mgr_;
   std::string web_dir_;
+  std::map<void* , std::string> file_r_;
 
   std::thread msg_loop_;
 };

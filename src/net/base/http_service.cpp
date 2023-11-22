@@ -23,63 +23,56 @@ void HttpServiceBase::UnregisterRouter(RouterBase::Ptr router) {
 
 void HttpServiceBase::ListAllRouter() {
   for (auto& i : router_) {
-    log::Info() << i.first << std::endl;
+    log::Info() << i.first;
   }
 }
 
-bool HttpServiceBase::CallRouter(const ReqMeta& req, RespMeta& resp) {
+bool HttpServiceBase::QueryRouter(const std::string &url, RouterBase::Meta::Ptr &ptr) {
   std::lock_guard<std::mutex> l(mutex_);
 
-  auto res = router_.find(req.Url);
+  auto res = router_.find(url);
   if (res == router_.end()) {
     return false;
   }
-
-  RouterBase::Meta::Ptr ptr;
   for (auto &i : res->second) {
-    if (!i.Router.expired()) {
-      ptr = i.Router.lock();
-      if (ptr->Enabled) {
-        if (req.Method & ptr->Method) {
-          break;
-        } else {
-          resp.Code = 405;
-          ptr.reset();
-        }
-      } else {
-        resp.Code = 404;
-        ptr.reset();
-      }
+    if (!i.expired()) {
+      ptr = i.lock();
+      return true;
     }
   }
+  return false;
+}
 
-  if (!ptr) {
-    return true;
-  }
-  
-  auto code = ptr->Handler(req.Complex, resp.Complex);
-  switch (code) {
-    case RouterBase::HANDLER_OK:
-      resp.Code = 200;
-      break;
-    case RouterBase::HANDLER_BAD_CONVERT:
-      resp.Code = 400;
-      break;
-    case RouterBase::HANDLER_NOT_FOUND:
-      resp.Code = 404;
-      break;
-    case RouterBase::HANDLER_UNAUTHORIZED:
-      resp.Code = 401;
-      break;
-    case RouterBase::HANDLER_FORBIDDEN:
-      resp.Code = 403;
-      break;
-    default:
-      resp.Code = 503;
-      break;
+bool HttpServiceBase::CallRouter(const RouterBase::Meta::Ptr &ptr, const ReqMeta &req, RespMeta &resp) {
+  std::lock_guard<std::mutex> l(mutex_);
+  if (ptr->Enabled) {
+    if (!(req.Method & ptr->Method)) {
+      resp.Code = 405;
+      return false;
+    }
+  } else {
+    resp.Code = 404;
+    return false;
   }
 
-  return true;
+  auto code = ptr->ReqHandler(req.Complex, resp.Complex);
+  return CheckRouterResult(code, resp);
+}
+
+bool HttpServiceBase::CallFileRouter(const RouterBase::Meta::Ptr &ptr, 
+                                     const ReqMeta &req, RespMeta &resp,
+                                     const std::string name, const char* buff, size_t len) {
+  if (ptr->Enabled) {
+    if (!(req.Method & ptr->Method)) {
+      resp.Code = 405;
+      return false;
+    }
+  } else {
+    resp.Code = 404;
+    return false;
+  }
+  auto code = ptr->FileReqHandler(req.Complex, name, buff, len, resp.Complex);
+  return CheckRouterResult(code, resp);
 }
 
 bool HttpServiceBase::RegisterRouterImpl(RouterBase::Ptr router) {
@@ -94,18 +87,45 @@ bool HttpServiceBase::RegisterRouterImpl(RouterBase::Ptr router) {
     } else {
       bool conflict = false;
       for (auto &j : res->second) {
-        if (!j.Router.expired() && (j.Router.lock()->Method & i->Method)) {
+        if (!j.expired() && (j.lock()->Method & i->Method)) {
           conflict = true;
         }
       }
       if (conflict) {
-        seeker::log::Warn() << "conflict router path: " << api << std::endl;
+        seeker::log::Warn() << "conflict router path: " << api;
       } else {
         res->second.push_back({ i });
       }
     }
   }
   return true;
+}
+
+bool HttpServiceBase::CheckRouterResult(RouterBase::HANDLER_RESULT code, RespMeta &resp) {
+    switch (code) {
+    case RouterBase::HANDLER_OK:
+      resp.Code = 200;
+      return true;
+    case RouterBase::HANDLER_BAD:
+      resp.Code = 400;
+      break;
+    case RouterBase::HANDLER_NOT_FOUND:
+      resp.Code = 404;
+      break;
+    case RouterBase::HANDLER_UNAUTHORIZED:
+      resp.Code = 401;
+      break;
+    case RouterBase::HANDLER_FORBIDDEN:
+      resp.Code = 403;
+      break;
+    case RouterBase::HANDLER_REQ_TOO_LARGE:
+      resp.Code = 413;
+      break;
+    default:
+      resp.Code = 503;
+      break;
+  }
+  return false;
 }
 
 } // namespace base
