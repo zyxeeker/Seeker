@@ -91,16 +91,27 @@ void MongooseService::OnMsgCallBack(struct mg_connection* conn, int ev,
     req_meta.Complex.Body.Len = hm->body.len;
 
     RouterBase::Meta::Ptr ptr;
-    if (!th->QueryRouter(url, ptr)) {
-      if (th->web_dir_.empty()) {
-        mg_http_reply(conn, 404, "Content-Type: text/plain\r\n", "Not Found");
-      } else {
-        // web
-        struct mg_http_serve_opts opts;
-        opts = mg_http_serve_opts { .root_dir = th->web_dir_.c_str()};
-        mg_http_serve_dir(conn, hm, &opts);
+    auto res = th->QueryRouter(url, req_meta.Method, ptr);
+    switch (res) {
+      case HttpServiceBase::QUERY_NOT_FOUND: {
+        if (th->web_dir_.empty()) {
+          mg_http_reply(conn, 404, "Content-Type: text/plain\r\n", "Not Found");
+        } else {
+          // web
+          struct mg_http_serve_opts opts;
+          opts = mg_http_serve_opts { .root_dir = th->web_dir_.c_str()};
+          mg_http_serve_dir(conn, hm, &opts);
+        }
+        return;
       }
-    } else if (ptr->ReqHandler) {
+      case HttpServiceBase::QUERY_NOT_ALLOWED:
+        mg_http_reply(conn, 405, "Content-Type: text/plain\r\n", "Method Not Allowed");
+        return;
+      default:
+        break;
+    }
+    
+    if (ptr->ReqHandler) {
       th->CallRouter(ptr, req_meta, resp_meta);
     } else if (ptr->FileReqHandler) {
       struct mg_http_part part;

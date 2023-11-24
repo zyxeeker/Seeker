@@ -27,33 +27,31 @@ void HttpServiceBase::ListAllRouter() {
   }
 }
 
-bool HttpServiceBase::QueryRouter(const std::string &url, RouterBase::Meta::Ptr &ptr) {
+HttpServiceBase::QUERY_ROUTER_RESULT HttpServiceBase::QueryRouter(const std::string &url, 
+                                                                  METHOD method, RouterBase::Meta::Ptr &ptr) {
   std::lock_guard<std::mutex> l(mutex_);
 
   auto res = router_.find(url);
   if (res == router_.end()) {
-    return false;
+    return QUERY_NOT_FOUND;
   }
   for (auto &i : res->second) {
     if (!i.expired()) {
       ptr = i.lock();
-      return true;
+      if (ptr->Enabled) {
+        if (method & ptr->Method) {
+          return QUERY_OK;
+        } else {
+          ptr.reset();
+        }
+      }
     }
   }
-  return false;
+  return QUERY_NOT_ALLOWED;
 }
 
 bool HttpServiceBase::CallRouter(const RouterBase::Meta::Ptr &ptr, const ReqMeta &req, RespMeta &resp) {
   std::lock_guard<std::mutex> l(mutex_);
-  if (ptr->Enabled) {
-    if (!(req.Method & ptr->Method)) {
-      resp.Code = 405;
-      return false;
-    }
-  } else {
-    resp.Code = 404;
-    return false;
-  }
 
   auto code = ptr->ReqHandler(req.Complex, resp.Complex);
   return CheckRouterResult(code, resp);
@@ -62,15 +60,6 @@ bool HttpServiceBase::CallRouter(const RouterBase::Meta::Ptr &ptr, const ReqMeta
 bool HttpServiceBase::CallFileRouter(const RouterBase::Meta::Ptr &ptr, 
                                      const ReqMeta &req, RespMeta &resp,
                                      const std::string name, const char* buff, size_t len) {
-  if (ptr->Enabled) {
-    if (!(req.Method & ptr->Method)) {
-      resp.Code = 405;
-      return false;
-    }
-  } else {
-    resp.Code = 404;
-    return false;
-  }
   auto code = ptr->FileReqHandler(req.Complex, name, buff, len, resp.Complex);
   return CheckRouterResult(code, resp);
 }

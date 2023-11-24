@@ -19,6 +19,12 @@ class HttpServiceBase : public IHttpService {
     RouterBase::Meta::WPtr Router;
   };
  public:
+  enum QUERY_ROUTER_RESULT {
+    QUERY_OK,
+    QUERY_NOT_ALLOWED,
+    QUERY_NOT_FOUND,
+  };
+
   HttpServiceBase();
   ~HttpServiceBase();
 
@@ -31,7 +37,7 @@ class HttpServiceBase : public IHttpService {
 
   virtual void SetWebSite(const std::string &path) = 0;
 
-  bool QueryRouter(const std::string &url, RouterBase::Meta::Ptr &ptr);
+  QUERY_ROUTER_RESULT QueryRouter(const std::string &url, METHOD method, RouterBase::Meta::Ptr &ptr);
   bool CallRouter(const RouterBase::Meta::Ptr &ptr, const ReqMeta &req, RespMeta &resp);
   bool CallFileRouter(const RouterBase::Meta::Ptr &ptr, 
                       const ReqMeta &req, RespMeta &resp,
