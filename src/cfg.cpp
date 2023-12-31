@@ -1,132 +1,221 @@
-/**
- * @file cfg.cpp
- * @author zyxeeker (zyxeeker@gmail.com)
- * @brief 配置管理器具体实现
- * @version 1.0
- * @date 2023-06-06
- */
-
 #include "cfg.h"
+
+#include <unistd.h>
+
 #include <fstream>
 
-#if 0
-#define FILE_PATH "cfg.json"
-#else
-#define FILE_PATH "test.json"
-#endif
-
 namespace seeker {
-namespace cfg {
+Cfg::Impl::Impl(size_t th_nums)
+    : start_(false),
+      th_(std::make_unique<seeker::ThreadPool>(th_nums)) {}
 
-typedef struct CfgMgr_ {
-  std::fstream file_stream_;
-  JsonDataPtr data_;
-} CfgDataMgr;
-
-static CfgDataMgr& CfgData() {
-  static CfgDataMgr kCfgDataMgr;
-  if (!kCfgDataMgr.data_) {
-    // 关闭已打开的文件流
-    if (kCfgDataMgr.file_stream_.is_open()) {
-      kCfgDataMgr.file_stream_.close();
-    }
-    // 以只读模式打开
-    kCfgDataMgr.file_stream_.open(FILE_PATH, std::ios::in);
-    if (kCfgDataMgr.file_stream_.fail()) {
-      throw RunTimeError::Create(MODULE_NAME, 
-                                "failed to open cfg flie to read!");
-    }
-    // 解析配置
-    try {
-      kCfgDataMgr.data_ = std::make_shared<nlohmann::json>
-                              (nlohmann::json::parse(kCfgDataMgr.file_stream_));
-    } catch (nlohmann::json::exception ex) {
-      throw RunTimeError::Create(MODULE_NAME, ex.what());
-    }
-  }
-  return kCfgDataMgr;
+Cfg::Impl::~Impl() {
+  Deinit();
 }
 
-//// Impl Begin
+bool Cfg::Impl::Init(std::initializer_list<Meta>&& list) {
+  if (start_) {
+    return true;
+  }
+  std::lock_guard<std::mutex> l(mutex_);
+  th_->Start();
+  
+  std::vector<Meta> meta = list;
+  ReadFile(meta);
 
-void Manager::Impl::Init() {
-  th::MutexGuard sg(GetMutex());
-  auto& cfg_data = CfgData();
-  // 关闭已打开的文件流
-  if (cfg_data.file_stream_.is_open()) {
-    cfg_data.file_stream_.close();
-  }
-  // 以只读模式打开
-  cfg_data.file_stream_.open(FILE_PATH, std::ios::in);
-  if (cfg_data.file_stream_.fail()) {
-    throw RunTimeError::Create(MODULE_NAME, 
-                               "failed to open cfg flie to read!");
-  }
-  // 解析配置
-  try {
-    cfg_data.data_ = std::make_shared<nlohmann::json>
-                        (nlohmann::json::parse(cfg_data.file_stream_));
-  } catch (nlohmann::json::exception ex) {
-    throw RunTimeError::Create(MODULE_NAME, ex.what());
-  }
-}
+  start_ = true;
+  writer_ = std::thread(&Cfg::Impl::WriterThread, this);
 
-void Manager::Impl::Save() {
-  th::MutexGuard sg(GetMutex());
-  auto &data = CfgData();
-  if (data.file_stream_.is_open()) {
-    data.file_stream_.close();
-  }
-  // 以只写模式打开
-  data.file_stream_.open(FILE_PATH, std::ios::out | std::ios::trunc);
-  if (data.file_stream_.fail()) {
-    throw RunTimeError::Create(MODULE_NAME, 
-                               "failed to open cfg flie to save!");
-  }
-  data.file_stream_ << *(data.data_);
-}
-
-JsonDataPtr Manager::Impl::GetJsonDataPtr() {
-  th::MutexGuard sg(GetMutex());
-  return CfgData().data_;
-}
-//// Impl End
-
-Manager::Manager()
-    : impl_(std::make_unique<Impl>()) {}
-
-Manager::~Manager() = default;
-
-bool Manager::Remove(const std::string& key) {
-  auto data = GetCfgDataPtr();
-  if (!data) {
-    return false;
-  }
-  auto res = data->find(key);
-  if (res == data->end()) {
-    return false;
-  }
-  data->erase(key);
   return true;
 }
 
-void Manager::Save() {
-  impl_->Save();
-}
-
-void Manager::List() {
-  log::Info("cfg") << nlohmann::to_string(*(impl_->GetJsonDataPtr()));
-}
-
-JsonDataPtr Manager::GetCfgDataPtr() {
-  try {
-    auto ptr = impl_->GetJsonDataPtr();
-    return ptr;
-  } catch (RunTimeError ex) {
-    log::Fatal("cfg") << ex.what();
+void Cfg::Impl::Deinit() {
+  if (!start_) {
+    return;
   }
-  return nullptr;
+  th_->Stop();
+  start_ = false;
+  writer_.join();
 }
 
-} // cfg
-} // seeker
+bool Cfg::Impl::Query(const std::string& cfg_name, const std::string& key, nlohmann::json& value) {
+  std::unordered_map<std::string, JsonMeta>::iterator cfg;
+  nlohmann::json::iterator json;
+  if (!CheckExist(cfg_name, key, cfg, json)) {
+    return false;
+  }
+  value = json.value();
+  return true;
+}
+
+bool Cfg::Impl::Append(const std::string& cfg_name, const std::string& key, nlohmann::json& value) {
+  std::lock_guard<std::mutex> l(mutex_);
+  auto cfg = jsons_.find(cfg_name);
+  if (cfg == jsons_.end()) {
+    return false;
+  }
+  cfg->second.Data[key] = value;
+  cfg->second.Changed = true;
+  return true;
+}
+
+bool Cfg::Impl::Update(const std::string& cfg_name, const std::string& key, const nlohmann::json value) {
+  auto func = std::bind(&Cfg::Impl::UpdateTask, this, 
+                        std::placeholders::_1, std::placeholders::_2, 
+                        std::placeholders::_3);
+  th_->CreateTask("notifyCfg", func, cfg_name, key, value);
+  return true;
+}
+
+bool Cfg::Impl::RegisterListener(const std::string& key, const std::string& name,
+                                   std::function<bool(const nlohmann::json&, const nlohmann::json&)> cb) {
+  std::lock_guard<std::mutex> l(mutex_);
+  for (auto& i : listeners_[key]) {
+    if (i.Name == name) {
+      return false;
+    }
+  }
+  Listener Listener;
+  Listener.Name = std::move(name);
+  Listener.CallBack = std::move(cb);
+  listeners_[key].emplace_back(Listener);
+  return true;
+}
+
+bool Cfg::Impl::UnregisterListener(const std::string& key, const std::string& name) {
+  std::lock_guard<std::mutex> l(mutex_);
+  auto& arr = listeners_[key];
+  for (auto i = arr.begin(); i != arr.end(); i++) {
+    if (i->Name == name) {
+      listeners_[key].erase(i);
+      return true;
+    }
+  }
+  return false;
+}
+bool Cfg::Impl::CheckExist(const std::string& cfg_name, const std::string& key, 
+                             std::unordered_map<std::string, JsonMeta>::iterator& cfg,
+                             nlohmann::json::iterator& json) {
+  cfg = jsons_.find(cfg_name);
+  if (cfg == jsons_.end()) {
+    return false;
+  }
+  
+  json = cfg->second.Data.find(key);
+  if (json == cfg->second.Data.end()) {
+    return false;
+  }
+  return true;
+}
+
+bool Cfg::Impl::ReadFile(std::vector<Meta>& list) {
+  for (auto& i : list) {
+    JsonMeta json;
+    std::ifstream ifs(i.Path);
+    if (!ifs.good()) {
+      continue;
+    }
+    try {
+      ifs >> json.Data;
+    } catch (...) {}
+    
+    json.Info = std::move(i);
+    auto res = jsons_.insert({ json.Info.Name, json });
+    if (!res.second) {
+      std::cout << "conflict name: " << json.Info.Name << std::endl;
+    }
+    ifs.close();
+  }
+  return true;
+}
+
+bool Cfg::Impl::WriteFile() {
+  for (auto& i : jsons_) {
+    if (!i.second.Changed) {
+      continue;
+    }
+    std::ofstream ofs(i.second.Info.Path);
+    if (!ofs.good()) {
+      continue;
+    }
+    ofs << i.second.Data;
+    ofs.close();
+    i.second.Changed = false;
+  }
+#if __linux__
+  system("sync");
+#endif
+  return true;
+}
+
+// TODO: Modify In Future
+void Cfg::Impl::WriterThread() {
+  while (start_) {
+    {
+      std::lock_guard<std::mutex> l(mutex_);
+      WriteFile();
+    }
+    usleep(500);
+  }
+}
+
+void Cfg::Impl::UpdateTask(const std::string cfg_name, const std::string key, const nlohmann::json value) {
+  std::lock_guard<std::mutex> l(mutex_);
+  std::unordered_map<std::string, JsonMeta>::iterator cfg;
+  nlohmann::json::iterator json;
+  if (!CheckExist(cfg_name, key, cfg, json)) {
+    return;
+  }
+  bool need_revert = false;
+  for (auto& i : listeners_[key]) {
+    if (!i.CallBack(json.value(), value)) {
+      need_revert = true;
+      break;
+    }
+  }
+  // revert cfg
+  if (need_revert) {
+    for (auto& i : listeners_[key]) {
+      i.CallBack(value, json.value());
+    }
+  } else {
+    cfg->second.Data[key] = value;
+    cfg->second.Changed = true;
+  }
+}
+
+Cfg::Cfg(size_t th_size)
+    : impl_(new Impl(th_size)) {}
+
+Cfg::~Cfg() = default;
+
+bool Cfg::Init(std::initializer_list<Meta>&& list) {
+  return impl_->Init(std::forward<decltype(list)>(list));
+}
+
+void Cfg::Deinit() {
+  impl_->Deinit();
+}
+
+bool Cfg::QueryImpl(const std::string& cfg_name, const std::string& key, nlohmann::json& value) {
+  return impl_->Query(cfg_name, key, value);
+}
+
+bool Cfg::AppendImpl(const std::string& cfg_name, const std::string& key, nlohmann::json& value) {
+  return impl_->Append(cfg_name, key, value);
+}
+
+bool Cfg::UpdateImpl(const std::string& cfg_name, const std::string& key, const nlohmann::json value) {
+  return impl_->Update(cfg_name, key, value);
+}
+
+bool Cfg::RegisterListenerImpl(const std::string& key, const std::string& name,
+                                 std::function<bool(const nlohmann::json&, const nlohmann::json&)> cb) {
+  return impl_->RegisterListener(key ,name, cb);
+}
+
+bool Cfg::UnregisterListenerImpl(const std::string& key, const std::string& name) {
+  return impl_->UnregisterListener(key ,name);
+}
+
+} // namespace seeker

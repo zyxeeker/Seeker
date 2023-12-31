@@ -1,17 +1,23 @@
-/**
- * @file log.h
- * @author zyxeeker (zyxeeker@gmail.com)
- * @brief 日志接口
- * @version 1.0
- * @date 2023-05-24
+/*
+ * @Author: zyxeeker zyxeeker@gmail.com
+ * @Date: 2023-05-24 16:28:41
+ * @LastEditors: zyxeeker zyxeeker@gmail.com
+ * @LastEditTime: 2023-11-08 20:17:45
+ * @Description: 日志模块接口
  */
+
 #ifndef _SEEKER_LOG_H_
 #define _SEEKER_LOG_H_
 
-#include <iostream>
+#include <string.h>
+
 #include <memory>
+#include <vector>
 #include <sstream>
+
 #include "util.h"
+
+#define __FILENAME__ (strrchr(__BASE_FILE__, '/') ? strrchr(__BASE_FILE__, '/') + 1 : __BASE_FILE__)
 
 namespace seeker {
 namespace log {
@@ -31,38 +37,38 @@ namespace log {
  */
 #define LOG_API_PARAM(LoggerName)                     \
   std::string logger_name = LoggerName,               \
-  const char* file_name = __builtin_FILE(),           \
+  const char* file_name = __FILENAME__,              \
   const char* function_name = __builtin_FUNCTION(),   \
   int line_num = __builtin_LINE(),                    \
-  uint64_t timestamp = util::GetTimeStamp()
+  uint64_t timestamp = util::GetCurTimeStamp()
 
 /**
  * @brief 日志等级
  */
-struct Level {
-  /**
-   * @brief 等级枚举值
-   */
-  typedef enum {
-    UNKNOWN = 0,
-    DEBUG,
-    INFO,
-    WARN,
-    ERROR,
-    FATAL,
-  } level;
-  /**
-   * @brief 等级枚举值转字符串
-   * @param l 枚举等级
-   * @return std::string 等级字符串
-   */
-  static std::string ToString(level l);
-  /**
-   * @brief 等级字符串转等级枚举值
-   * @param l_str 等级字符串
-   * @return level 等级枚举值
-   */
-  static level FromString(std::string l_str);
+enum LEVEL {
+  UNKNOWN = 0,
+  DEBUG,
+  INFO,
+  WARN,
+  ERROR,
+  FATAL,
+};
+
+enum OUTPUT_TYPE {
+  STD_OUT,
+  FILE_OUT
+};
+
+struct LoggerOutputDefineMeta {
+  OUTPUT_TYPE Type;
+  std::string Path;
+};
+
+struct LoggerDefineMeta {
+  std::string Name;
+  LEVEL Level;
+  std::string FormattingStr;
+  std::vector<LoggerOutputDefineMeta> Output;
 };
 
 /**
@@ -71,6 +77,7 @@ struct Level {
 class Log {
  public:
   using StdOut = std::basic_ostream<char, std::char_traits<char> >;
+
   Log();
   ~Log();
 
@@ -84,12 +91,15 @@ class Log {
     oss << StdOutFuncP;
     return (*this);
   }
+
  private:
   std::ostringstream oss;
   struct Impl;
   std::unique_ptr<Impl> impl_;
+  
  private:
   Log(std::unique_ptr<Impl> impl);
+  
   friend Log Debug(LOG_API_PARAM_DEF);
   friend Log Info(LOG_API_PARAM_DEF);
   friend Log Warn(LOG_API_PARAM_DEF);
@@ -100,7 +110,13 @@ class Log {
 /**
  * @brief 设置全局最低输出等级
  */
-void SetMinLogLevel(Level::level level);
+void SetMinLogLevel(LEVEL level);
+
+void RegisterLogger(LoggerDefineMeta logger);
+
+void RegisterLogger(std::vector<LoggerDefineMeta> loggers);
+
+void UnregisterLogger(const std::string& name);
 
 /**
  * @brief 日志Debug输出
